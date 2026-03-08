@@ -1,0 +1,7 @@
+---
+source: cross-compat/tests/golden.rs
+expression: sqls
+---
+[
+  "SELECT \"User\".\"id\", \"User\".\"email\", \"User\".\"name\" FROM \"User\" WHERE 1=1 ORDER BY \"User\".\"email\" DESC OFFSET ?"
+]

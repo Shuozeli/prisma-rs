@@ -1,0 +1,31 @@
+[package]
+name = "prisma-query-executor"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+prisma-driver-core.workspace = true
+prisma-ir = { path = "../prisma-ir" }
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+rust_decimal.workspace = true
+base64.workspace = true
+indexmap = "2"
+tracing.workspace = true
+
+[dev-dependencies]
+prisma-compiler = { path = "../prisma-compiler" }
+prisma-driver-sqlite = { path = "../driver-sqlite" }
+prisma-driver-pg = { path = "../driver-pg" }
+prisma-driver-mysql = { path = "../driver-mysql" }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+serial_test.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,8 @@
+---
+source: cross-compat/tests/golden.rs
+expression: sqls
+---
+[
+  "SELECT `User`.`id`, `User`.`email`, `User`.`name` FROM `User` WHERE (`User`.`id` = ? AND 1=1) LIMIT ? OFFSET ?",
+  "DELETE FROM `User` WHERE (`User`.`id` = ? AND 1=1)"
+]

@@ -1,0 +1,17 @@
+datasource db {
+  provider = "mongodb"
+}
+
+generator js {
+  provider        = "prisma-client"
+  previewFeatures = []
+}
+
+type Address {
+  number Int
+}
+
+model User {
+  id      Int     @id @map("_id")
+  address Address
+}

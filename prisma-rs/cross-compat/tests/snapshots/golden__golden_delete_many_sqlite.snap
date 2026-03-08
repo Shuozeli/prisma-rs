@@ -1,0 +1,7 @@
+---
+source: cross-compat/tests/golden.rs
+expression: sqls
+---
+[
+  "DELETE FROM `Post` WHERE `Post`.`published` = ?"
+]

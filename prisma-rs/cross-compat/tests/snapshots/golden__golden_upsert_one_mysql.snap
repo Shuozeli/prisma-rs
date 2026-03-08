@@ -1,0 +1,11 @@
+---
+source: cross-compat/tests/golden.rs
+expression: sqls
+---
+[
+  "SELECT `User`.`id` FROM `User` WHERE (`User`.`email` = ? AND 1=1)",
+  "UPDATE `User` SET `name` = ? WHERE (`User`.`id` IN ? AND (`User`.`email` = ? AND 1=1))",
+  "SELECT `User`.`id`, `User`.`email`, `User`.`name` FROM `User` WHERE `User`.`id` = ? LIMIT ? OFFSET ?",
+  "INSERT INTO `User` (`email`,`name`) VALUES (?,?)",
+  "SELECT `User`.`id`, `User`.`email`, `User`.`name` FROM `User` WHERE `User`.`id` = ? LIMIT ? OFFSET ?"
+]

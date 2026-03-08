@@ -1,0 +1,53 @@
+name: Build and publish @prisma/prisma-schema-wasm
+run-name: npm - release @prisma/prisma-schema-wasm@${{ github.event.inputs.enginesWrapperVersion }} from ${{ github.event.inputs.enginesHash }} on ${{ github.event.inputs.npmDistTag }}
+
+concurrency: publish-prisma-schema-wasm
+
+permissions:
+  id-token: write # required for OIDC / Trusted Publishers
+
+on:
+  # usually triggered via GH Actions Workflow in prisma/engines-wrapper repo
+  workflow_dispatch:
+    inputs:
+      enginesWrapperVersion:
+        required: true
+        description: 'New @prisma/prisma-schema-wasm package version'
+      enginesHash:
+        required: true
+        description: 'prisma-engines commit to build'
+      npmDistTag:
+        required: true
+        default: 'latest'
+        description: 'npm dist-tag (e.g. latest or integration)'
+
+jobs:
+  build:
+    name: Build and publish @prisma/prisma-schema-wasm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print input
+        env:
+          THE_INPUT: '${{ toJson(github.event.inputs) }}'
+        run: |
+          echo $THE_INPUT
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.enginesHash }}
+
+      - uses: ./.github/workflows/include/rust-wasm-setup
+
+      - name: Build
+        run: make build-schema-wasm PROFILE=release SCHEMA_WASM_VERSION=${{ github.event.inputs.enginesWrapperVersion }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Update npm to support Trusted Publishers
+        run: npm install -g npm@^11.5
+
+      - name: Publish @prisma/prisma-schema-wasm
+        run: npm publish --access public --tag ${{ github.event.inputs.npmDistTag }}
+        working-directory: target/prisma-schema-wasm

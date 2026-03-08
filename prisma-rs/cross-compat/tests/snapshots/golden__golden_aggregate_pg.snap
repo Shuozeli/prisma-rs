@@ -1,0 +1,7 @@
+---
+source: cross-compat/tests/golden.rs
+expression: sqls
+---
+[
+  "SELECT COUNT(*) AS \"_count$_all\", MIN(\"id\") AS \"_min$id\", MAX(\"id\") AS \"_max$id\" FROM (SELECT \"User\".\"id\" FROM \"User\" WHERE 1=1 OFFSET ?) AS \"sub\""
+]

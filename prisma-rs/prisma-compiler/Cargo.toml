@@ -1,0 +1,24 @@
+[package]
+name = "prisma-compiler"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+psl = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b", features = ["all"] }
+query-compiler = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b", features = ["sqlite", "postgresql", "mysql"] }
+query-core = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b" }
+quaint = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b", default-features = false, features = ["sqlite", "postgresql", "mysql"] }
+request-handlers = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b", features = ["all"] }
+schema = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b" }
+prisma-ir = { path = "../prisma-ir" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

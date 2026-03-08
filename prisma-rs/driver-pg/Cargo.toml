@@ -1,0 +1,30 @@
+[package]
+name = "prisma-driver-pg"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+prisma-driver-core.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+tokio-postgres.workspace = true
+tokio-postgres-rustls.workspace = true
+rustls.workspace = true
+rustls-native-certs.workspace = true
+deadpool-postgres.workspace = true
+postgres-types.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+rust_decimal.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+bytes.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

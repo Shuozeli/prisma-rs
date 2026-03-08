@@ -1,0 +1,15 @@
+datasource db {
+  provider = "postgresql"
+}
+
+model B {
+  id  Int @id
+  bId Int
+  A   A   @relation(fields: [bId], references: [field])
+}
+
+model A {
+  id    Int @id
+  field Int @unique
+  B     B?
+}

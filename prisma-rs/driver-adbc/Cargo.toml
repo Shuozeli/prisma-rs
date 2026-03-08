@@ -1,0 +1,31 @@
+[package]
+name = "prisma-driver-adbc"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+prisma-driver-core.workspace = true
+async-trait.workspace = true
+tokio = { workspace = true, features = ["rt"] }
+thiserror.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+rust_decimal.workspace = true
+serde_json.workspace = true
+
+# ADBC
+adbc_core = "0.22"
+
+# Arrow (must match adbc_core's arrow dependency)
+arrow-array = "56"
+arrow-schema = "56"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+prisma-driver-duckdb = { path = "../driver-duckdb" }
+duckdb = { version = "1.4", features = ["bundled"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,37 @@
+[package]
+name = "query-tests-setup"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+cuid.workspace = true
+derive_more.workspace = true
+serde_json.workspace = true
+query-structure.workspace = true
+qe-setup = { path = "../qe-setup" }
+request-handlers = { workspace = true, features = ["graphql-protocol"] }
+tokio.workspace = true
+query-core.workspace = true
+psl.workspace = true
+user-facing-errors.workspace = true
+telemetry.workspace = true
+thiserror.workspace = true
+nom.workspace = true
+itertools.workspace = true
+regex.workspace = true
+serde.workspace = true
+tracing.workspace = true
+tracing-futures.workspace = true
+tracing-subscriber.workspace = true
+tracing-error.workspace = true
+colored.workspace = true
+indoc.workspace = true
+indexmap.workspace = true
+quaint.workspace = true
+jsonrpc-core.workspace = true
+insta.workspace = true
+panic-utils.workspace = true
+parse-hyperlinks.workspace = true
+strip-ansi-escapes.workspace = true
+log.workspace = true
+env_logger.workspace = true

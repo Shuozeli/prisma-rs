@@ -1,0 +1,4 @@
+{
+  "connector": "mongodb",
+  "version": "4.2"
+}

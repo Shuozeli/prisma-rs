@@ -1,0 +1,135 @@
+# prisma-rs
+
+> Pure Rust implementation of the Prisma ORM. Drop-in replacement for the
+> TypeScript Prisma implementation: same schema input, same client API,
+> same query results, same migration workflow.
+
+Source: https://github.com/Shuozeli/prisma-rs
+
+## What This Is
+
+A from-scratch Rust implementation of the Prisma ORM that replaces the
+TypeScript query execution layer, client runtime, CLI, code generators,
+and database driver adapters. Designed for native server environments
+with direct database connections.
+
+Use cases:
+- Type-safe database access from Rust applications
+- Schema-driven code generation (Rust and TypeScript clients)
+- Database migrations (dev, deploy, reset, resolve)
+- Cross-database support (PostgreSQL, MySQL, SQLite, DuckDB)
+
+## Architecture
+
+Sixteen crates in a Cargo workspace:
+
+### driver-core
+
+Database driver trait and common types. Defines `DatabaseDriver` trait,
+`ResultSet`, `DriverError`, `MappedError`, and value types (`PrismaValue`).
+All database drivers implement this trait.
+
+### driver-pg
+
+PostgreSQL driver using `tokio-postgres` with `deadpool-postgres` connection
+pooling. Handles type conversion between PostgreSQL wire types and
+`PrismaValue`. Supports TLS via `rustls`.
+
+### driver-mysql
+
+MySQL driver using `mysql_async`. Handles MySQL-specific type mapping
+including DATETIME, DECIMAL, JSON, and enum types.
+
+### driver-sqlite
+
+SQLite driver using `rusqlite` with bundled SQLite. Handles SQLite's
+dynamic typing system and maps to `PrismaValue`.
+
+### driver-duckdb
+
+DuckDB driver built on the ADBC (Arrow Database Connectivity) layer.
+Provides analytical database support.
+
+### driver-adbc
+
+Arrow Database Connectivity driver. Converts between Arrow columnar
+format and Prisma's row-based `ResultSet`. Handles Arrow type mapping
+for timestamps, decimals, lists, and nested structs.
+
+### driver-flightsql
+
+Arrow Flight SQL driver for remote database access over gRPC.
+
+### prisma-schema
+
+Schema types mirroring the Prisma schema AST. Defines `DataModel`,
+`Model`, `Field`, `Relation`, `Enum`, and related types used by
+the compiler and code generator.
+
+### prisma-compiler
+
+Query planning and compilation. Takes Prisma Client operations and
+compiles them into query plans that the executor can run.
+
+### prisma-migrate
+
+Migration engine providing an RPC bridge to the Prisma schema engine.
+Handles migrate dev, deploy, reset, resolve, and diff operations.
+Defines RPC types: `MigrationList`, `MigrationDirectory`, `SchemaPush`.
+
+### prisma-error
+
+Shared error types used across crates. Defines `PrismaError` and
+error categories for schema, query, migration, and driver errors.
+
+### cross-compat
+
+Cross-compatibility testing framework. Runs the same queries through
+both the Rust and TypeScript Prisma implementations and asserts
+identical results against real databases.
+
+### query-executor
+
+In-memory query execution engine. Implements filtering (where clauses),
+sorting (orderBy), pagination (skip/take/cursor), aggregation (count,
+sum, avg, min, max, groupBy), and relation traversal (include/select).
+Also handles create, update, upsert, and delete mutations.
+
+### prisma-client
+
+Client runtime providing the high-level API. Includes Prisma Accelerate
+integration (HTTP-based query forwarding) and interactive transaction
+support.
+
+### prisma-codegen
+
+Client code generation from Prisma schemas. Builds a schema IR
+(intermediate representation) and generates typed client code.
+Validates identifiers and field types during generation.
+
+### prisma-cli
+
+CLI binary providing all Prisma CLI commands: generate, validate, format,
+db push, db pull, db execute, migrate dev, migrate deploy, migrate reset,
+migrate resolve, migrate diff. Handles configuration loading, database
+URL validation, and migration file management.
+
+## Key Types
+
+- `DatabaseDriver` (driver-core): Async trait for database operations
+  (execute, query, start_transaction)
+- `ResultSet` (driver-core): Query result with column names and typed rows
+- `PrismaValue` (driver-core): Enum of all supported value types
+  (String, Int, Float, Boolean, DateTime, Json, Bytes, Null, etc.)
+- `DriverError` (driver-core): Error with mapped variant for
+  constraint violations, auth failures, connection issues
+- `DataModel` (prisma-schema): Complete schema representation
+- `QueryPlan` (prisma-compiler): Compiled query ready for execution
+
+## Dependencies
+
+Core: tokio, async-trait, thiserror, serde, serde_json, chrono, uuid
+PostgreSQL: tokio-postgres, deadpool-postgres, rustls
+MySQL: mysql_async
+SQLite: rusqlite (bundled)
+HTTP: reqwest (for Accelerate)

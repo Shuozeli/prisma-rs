@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Pre-commit hook for prisma-rs workspace.
+# Install: ./scripts/install-hooks.sh
+
+set -euo pipefail
+
+WORKSPACE_DIR="$(git rev-parse --show-toplevel)/prisma-rs"
+
+# Only run checks if Rust files are staged
+STAGED_RS=$(git diff --cached --name-only --diff-filter=ACM -- '*.rs' '*.toml' | head -1)
+if [ -z "$STAGED_RS" ]; then
+    exit 0
+fi
+
+echo "[pre-commit] Checking formatting..."
+if ! (cd "$WORKSPACE_DIR" && cargo fmt --all -- --check) 2>/dev/null; then
+    echo ""
+    echo "[pre-commit] Formatting issues found. Run: cargo fmt --all"
+    exit 1
+fi
+
+echo "[pre-commit] Running clippy..."
+if ! (cd "$WORKSPACE_DIR" && cargo clippy --all-targets -- -D warnings) 2>/dev/null; then
+    echo ""
+    echo "[pre-commit] Clippy warnings found. Fix them before committing."
+    exit 1
+fi
+
+echo "[pre-commit] All checks passed."

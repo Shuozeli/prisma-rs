@@ -1,0 +1,14 @@
+generator js {
+  provider = "prisma-client"
+}
+
+datasource db {
+  provider = "postgres"
+}
+
+model A {
+  id  Int   @id
+  val Float @db.Real
+
+  @@index([val(ops: <|>)], type: Brin)
+}

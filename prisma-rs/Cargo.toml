@@ -1,0 +1,77 @@
+[workspace]
+resolver = "2"
+members = [
+    "driver-core",
+    "driver-pg",
+    "driver-mysql",
+    "driver-sqlite",
+    "prisma-schema",
+    "prisma-compiler",
+    "prisma-migrate",
+    "prisma-error",
+    "cross-compat",
+    "query-executor",
+    "prisma-client",
+    "prisma-codegen",
+    "prisma-cli",
+    "driver-duckdb",
+    "driver-adbc",
+    "driver-flightsql",
+    "prisma-ir",
+]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+# Internal
+prisma-driver-core = { path = "driver-core" }
+
+# Async
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+
+# Error handling
+thiserror = "2"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Numeric types
+uuid = { version = "1", features = ["v4", "serde"] }
+rust_decimal = { version = "1", features = ["serde-with-str"] }
+base64 = "0.22"
+bytes = "1"
+
+# Database drivers
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-uuid-1", "with-serde_json-1"] }
+tokio-postgres-rustls = "0.13"
+rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+rustls-native-certs = "0.8"
+deadpool-postgres = "0.14"
+postgres-types = { version = "0.2", features = ["with-chrono-0_4", "with-uuid-1", "with-serde_json-1"] }
+mysql_async = { version = "0.35", default-features = false, features = ["default-rustls"] }
+rusqlite = { version = "0.32", features = ["bundled", "column_decltype"] }
+
+# HTTP
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# URL parsing
+url = "2"
+
+# Observability
+tracing = "0.1"
+
+# Testing
+tokio-test = "0.4"
+serial_test = "3"
+
+[workspace.lints.clippy]
+result_large_err = "allow"
+approx_constant = "allow"

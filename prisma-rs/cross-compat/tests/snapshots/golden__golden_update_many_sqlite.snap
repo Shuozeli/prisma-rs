@@ -1,0 +1,7 @@
+---
+source: cross-compat/tests/golden.rs
+expression: sqls
+---
+[
+  "UPDATE `User` SET `name` = ? WHERE `User`.`name` = ?"
+]

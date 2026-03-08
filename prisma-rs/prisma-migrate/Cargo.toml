@@ -1,0 +1,26 @@
+[package]
+name = "prisma-migrate"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+schema-core = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b" }
+schema-commands = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b", package = "schema-commands", features = ["all-native"] }
+schema-connector = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b", features = ["all-native"] }
+json-rpc-api = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b", package = "json-rpc-api" }
+psl = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b", features = ["all"] }
+user-facing-errors = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b", features = ["all-native"] }
+
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

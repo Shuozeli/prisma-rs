@@ -1,0 +1,7 @@
+---
+source: cross-compat/tests/golden.rs
+expression: sqls
+---
+[
+  "UPDATE `User` SET `name` = ? WHERE (`User`.`id` = ? AND 1=1) RETURNING `id` AS `id`, `email` AS `email`, `name` AS `name`"
+]

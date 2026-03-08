@@ -1,0 +1,7 @@
+---
+source: cross-compat/tests/golden.rs
+expression: sqls
+---
+[
+  "SELECT \"User\".\"name\", COUNT(*) AS \"_count$_all\" FROM \"User\" WHERE 1=1 GROUP BY \"User\".\"name\" OFFSET ?"
+]

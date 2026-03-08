@@ -1,0 +1,7 @@
+---
+source: cross-compat/tests/golden.rs
+expression: sqls
+---
+[
+  "INSERT INTO \"User\" (\"email\",\"name\") VALUES (?,?) ON CONFLICT (\"email\") DO UPDATE SET \"name\" = ? WHERE (\"User\".\"email\" = ? AND 1=1) RETURNING \"User\".\"id\", \"User\".\"email\", \"User\".\"name\""
+]
