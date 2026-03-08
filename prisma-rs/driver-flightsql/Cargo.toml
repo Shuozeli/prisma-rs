@@ -1,0 +1,30 @@
+[package]
+name = "prisma-driver-flightsql"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+prisma-driver-core.workspace = true
+prisma-driver-adbc = { path = "../driver-adbc" }
+async-trait.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+
+# Arrow Flight SQL
+arrow-flight = { version = "56", features = ["flight-sql"] }
+arrow-array = "56"
+arrow-schema = "56"
+arrow-ipc = "56"
+tonic = "0.13"
+prost = "0.13"
+bytes.workspace = true
+futures-util = "0.3"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

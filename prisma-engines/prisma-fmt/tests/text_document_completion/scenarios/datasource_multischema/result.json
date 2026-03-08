@@ -1,0 +1,25 @@
+{
+  "isIncomplete": false,
+  "items": [
+    {
+      "label": "relationMode",
+      "kind": 5,
+      "documentation": {
+        "kind": "markdown",
+        "value": "```prisma\nrelationMode = \"foreignKeys\" | \"prisma\"\n```\n___\nSet the global relation mode for all relations. Values can be either \"foreignKeys\" (Default), or \"prisma\". [Learn more](https://pris.ly/d/relation-mode)\n\n"
+      },
+      "insertText": "relationMode = $0",
+      "insertTextFormat": 2
+    },
+    {
+      "label": "schemas",
+      "kind": 5,
+      "documentation": {
+        "kind": "markdown",
+        "value": "```prisma\nschemas = [\"foo\", \"bar\", \"baz\"]\n```\n___\nThe list of database schemas. [Learn More](https://pris.ly/d/multi-schema-configuration)\n\n"
+      },
+      "insertText": "schemas = [$0]",
+      "insertTextFormat": 2
+    }
+  ]
+}

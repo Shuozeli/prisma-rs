@@ -1,0 +1,3 @@
+[submodule "quiver/arrow-adbc-rs"]
+	path = quiver/arrow-adbc-rs
+	url = git@github.com:Shuozeli/arrow-adbc-rs.git

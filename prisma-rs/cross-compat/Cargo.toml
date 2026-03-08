@@ -1,0 +1,24 @@
+[package]
+name = "prisma-cross-compat"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+prisma-driver-core.workspace = true
+prisma-schema = { path = "../prisma-schema" }
+prisma-compiler = { path = "../prisma-compiler" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+prisma-driver-pg = { path = "../driver-pg" }
+prisma-driver-mysql = { path = "../driver-mysql" }
+prisma-driver-sqlite = { path = "../driver-sqlite" }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+insta = { version = "1", features = ["json", "redactions"] }
+
+[lints]
+workspace = true

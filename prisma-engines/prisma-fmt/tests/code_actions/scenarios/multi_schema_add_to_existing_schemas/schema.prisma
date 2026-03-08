@@ -1,0 +1,16 @@
+generator client {
+    provider        = "prisma-client"
+    previewFeatures = []
+}
+
+datasource db {
+    provider     = "postgresql"
+    schemas      = ["a", "b"]
+    relationMode = "prisma"
+}
+
+model A {
+    id Int @id
+
+    @@schema("base")
+}

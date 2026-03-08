@@ -1,0 +1,8 @@
+---
+source: cross-compat/tests/golden.rs
+expression: sqls
+---
+[
+  "SELECT \"User\".\"id\", \"User\".\"email\", \"User\".\"name\" FROM \"User\" WHERE 1=1 OFFSET ?",
+  "SELECT \"Post\".\"id\", \"Post\".\"title\", \"Post\".\"content\", \"Post\".\"published\", \"Post\".\"authorId\" FROM \"Post\" WHERE \"Post\".\"authorId\" IN ? OFFSET ?"
+]

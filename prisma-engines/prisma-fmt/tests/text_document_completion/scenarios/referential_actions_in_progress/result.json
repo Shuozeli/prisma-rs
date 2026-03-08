@@ -1,0 +1,10 @@
+{
+  "isIncomplete": false,
+  "items": [
+    {
+      "label": "Cascade",
+      "kind": 13,
+      "detail": "Delete the child records when the parent record is deleted."
+    }
+  ]
+}

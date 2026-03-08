@@ -1,0 +1,15 @@
+[package]
+name = "prisma-error"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+user-facing-errors = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b" }
+prisma-driver-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

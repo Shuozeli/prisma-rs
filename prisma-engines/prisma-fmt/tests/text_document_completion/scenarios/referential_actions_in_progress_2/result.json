@@ -1,0 +1,10 @@
+{
+  "isIncomplete": false,
+  "items": [
+    {
+      "label": "Restrict",
+      "kind": 13,
+      "detail": "Prevent deleting a parent record as long as it is referenced."
+    }
+  ]
+}

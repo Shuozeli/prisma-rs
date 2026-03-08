@@ -1,0 +1,21 @@
+[package]
+name = "prisma-codegen"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Code generator for Prisma TypeScript and Rust clients"
+
+[dependencies]
+prisma-schema = { path = "../prisma-schema" }
+psl = { git = "https://github.com/prisma/prisma-engines.git", rev = "94a226b" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+prisma-client = { path = "../prisma-client" }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true
