@@ -33,6 +33,7 @@ fn gen_header() -> String {
 
 use prisma_client::{
     ClientError, Operation, PrismaClient as BasePrismaClient, QueryBuilder, Selection,
+    TransactionClient,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -138,30 +139,54 @@ fn gen_input_structs(ir: &SchemaIR) -> String {
     out.push_str("// --- Input types ---\n\n");
 
     for model in &ir.models {
-        // CreateInput
+        // CreateInput -- derives Default with sensible per-type defaults.
+        // Fields with @default, @updatedAt, or Optional arity become Option<T>.
         out.push_str("#[derive(Debug, Clone, Serialize, Deserialize)]\n");
         out.push_str("#[serde(rename_all = \"camelCase\")]\n");
         out.push_str(&format!("pub struct {}CreateInput {{\n", model.name));
+
+        // Track whether we need a custom Default impl (has required fields without defaults)
+        let mut default_fields: Vec<(String, String, bool)> = Vec::new(); // (snake_name, type, is_optional)
+
         for field in &model.fields {
             if let ModelField::Scalar(sf) = field {
                 if sf.is_autoincrement || sf.is_id {
                     continue;
                 }
                 let rust_type = scalar_to_rust_type(sf, ir);
-                let (full_type, serde_attr) = if sf.arity == FieldArity::Optional || sf.default.is_some() {
+                let is_auto = sf.default.is_some() || sf.is_updated_at;
+                let (full_type, serde_attr, is_optional) = if sf.arity == FieldArity::Optional || is_auto {
                     (
                         format!("Option<{}>", rust_type),
                         "    #[serde(skip_serializing_if = \"Option::is_none\")]\n".to_string(),
+                        true,
                     )
                 } else if sf.arity == FieldArity::List {
-                    (format!("Vec<{}>", rust_type), String::new())
+                    (format!("Vec<{}>", rust_type), String::new(), false)
                 } else {
-                    (rust_type, String::new())
+                    (rust_type.clone(), String::new(), false)
                 };
                 out.push_str(&serde_attr);
                 out.push_str(&format!("    pub {}: {},\n", to_snake_case(&sf.name), full_type));
+                default_fields.push((to_snake_case(&sf.name), rust_type, is_optional));
             }
         }
+        out.push_str("}\n\n");
+
+        // Generate Default impl with sensible defaults for required fields
+        out.push_str(&format!("impl Default for {}CreateInput {{\n", model.name));
+        out.push_str("    fn default() -> Self {\n");
+        out.push_str("        Self {\n");
+        for (snake_name, rust_type, is_optional) in &default_fields {
+            if *is_optional {
+                out.push_str(&format!("            {}: None,\n", snake_name));
+            } else {
+                let default_val = default_value_for_type(rust_type);
+                out.push_str(&format!("            {}: {},\n", snake_name, default_val));
+            }
+        }
+        out.push_str("        }\n");
+        out.push_str("    }\n");
         out.push_str("}\n\n");
 
         // UpdateInput
@@ -212,6 +237,20 @@ fn gen_delegates(ir: &SchemaIR) -> String {
             name = model.name
         ));
 
+        // findMany with custom selection (for includes/relations)
+        out.push_str(&format!(
+            r#"    pub async fn find_many_with(&self, selection: Selection) -> Result<Vec<{name}WithRelations>, ClientError> {{
+        let qb = QueryBuilder::new("{name}", Operation::FindMany)
+            .selection(selection);
+        let result = self.client.execute(&qb).await?;
+        let items: Vec<{name}WithRelations> = serde_json::from_value(result)?;
+        Ok(items)
+    }}
+
+"#,
+            name = model.name
+        ));
+
         // findUnique
         out.push_str(&format!(
             r#"    pub async fn find_unique(&self, r#where: Value) -> Result<Option<{name}>, ClientError> {{
@@ -229,6 +268,24 @@ fn gen_delegates(ir: &SchemaIR) -> String {
             name = model.name
         ));
 
+        // findUnique with custom selection (for includes/relations)
+        out.push_str(&format!(
+            r#"    pub async fn find_unique_with(&self, r#where: Value, selection: Selection) -> Result<Option<{name}WithRelations>, ClientError> {{
+        let qb = QueryBuilder::new("{name}", Operation::FindUnique)
+            .where_arg(r#where)
+            .selection(selection);
+        let result = self.client.execute(&qb).await?;
+        if result.is_null() {{
+            return Ok(None);
+        }}
+        let item: {name}WithRelations = serde_json::from_value(result)?;
+        Ok(Some(item))
+    }}
+
+"#,
+            name = model.name
+        ));
+
         // findFirst
         out.push_str(&format!(
             r#"    pub async fn find_first(&self) -> Result<Option<{name}>, ClientError> {{
@@ -238,6 +295,23 @@ fn gen_delegates(ir: &SchemaIR) -> String {
             return Ok(None);
         }}
         let item: {name} = serde_json::from_value(result)?;
+        Ok(Some(item))
+    }}
+
+"#,
+            name = model.name
+        ));
+
+        // findFirst with custom selection (for includes/relations)
+        out.push_str(&format!(
+            r#"    pub async fn find_first_with(&self, selection: Selection) -> Result<Option<{name}WithRelations>, ClientError> {{
+        let qb = QueryBuilder::new("{name}", Operation::FindFirst)
+            .selection(selection);
+        let result = self.client.execute(&qb).await?;
+        if result.is_null() {{
+            return Ok(None);
+        }}
+        let item: {name}WithRelations = serde_json::from_value(result)?;
         Ok(Some(item))
     }}
 
@@ -463,11 +537,29 @@ fn gen_client(ir: &SchemaIR) -> String {
         out.push_str("    }\n\n");
     }
 
+    out.push_str("    pub async fn transaction(&self) -> Result<TransactionClient<'_>, ClientError> {\n");
+    out.push_str("        self.inner.transaction().await\n");
+    out.push_str("    }\n\n");
+
     out.push_str("    pub async fn disconnect(self) -> Result<(), ClientError> {\n");
     out.push_str("        self.inner.disconnect().await\n");
     out.push_str("    }\n");
     out.push_str("}\n");
     out
+}
+
+/// Return a sensible default value expression for a Rust type.
+fn default_value_for_type(rust_type: &str) -> &str {
+    match rust_type {
+        "i32" | "i64" => "0",
+        "f64" => "0.0",
+        "bool" => "false",
+        "String" => "String::new()",
+        _ if rust_type.starts_with("Vec<") => "Vec::new()",
+        // For enums and other types, fall back to Default trait.
+        // This will only compile if the type implements Default.
+        _ => "Default::default()",
+    }
 }
 
 fn scalar_to_rust_type(sf: &ScalarField, ir: &SchemaIR) -> String {
@@ -659,5 +751,126 @@ mod tests {
             code.contains("#[serde(rename_all = \"camelCase\")]\npub struct UserUpdateInput {"),
             "UserUpdateInput struct missing rename_all = camelCase"
         );
+    }
+
+    #[test]
+    fn create_input_has_default_impl() {
+        let ir = SchemaIR::from_schema(TEST_SCHEMA).unwrap();
+        let code = RustGenerator::generate(&ir).unwrap();
+
+        // CreateInput should have a Default impl
+        assert!(
+            code.contains("impl Default for UserCreateInput {"),
+            "UserCreateInput missing Default impl"
+        );
+        assert!(
+            code.contains("impl Default for PostCreateInput {"),
+            "PostCreateInput missing Default impl"
+        );
+    }
+
+    #[test]
+    fn create_input_defaults_with_value_are_optional() {
+        let ir = SchemaIR::from_schema(TEST_SCHEMA).unwrap();
+        let code = RustGenerator::generate(&ir).unwrap();
+
+        // PostCreateInput: 'published' has @default(false), should be Option<bool>
+        let post_create = code
+            .split("pub struct PostCreateInput {")
+            .nth(1)
+            .unwrap()
+            .split('}')
+            .next()
+            .unwrap();
+        assert!(
+            post_create.contains("pub published: Option<bool>"),
+            "published should be Option<bool> in PostCreateInput since it has @default(false)"
+        );
+    }
+
+    #[test]
+    fn updated_at_is_optional_in_create_input() {
+        let schema = r#"
+            datasource db {
+                provider = "postgresql"
+            }
+
+            model Task {
+                id        Int      @id @default(autoincrement())
+                title     String
+                updatedAt DateTime @updatedAt
+            }
+        "#;
+
+        let ir = SchemaIR::from_schema(schema).unwrap();
+        let code = RustGenerator::generate(&ir).unwrap();
+
+        let task_create = code
+            .split("pub struct TaskCreateInput {")
+            .nth(1)
+            .unwrap()
+            .split('}')
+            .next()
+            .unwrap();
+        assert!(
+            task_create.contains("pub updated_at: Option<String>"),
+            "@updatedAt field should be Option<String> in CreateInput"
+        );
+        assert!(
+            task_create.contains("skip_serializing_if"),
+            "@updatedAt field should have skip_serializing_if"
+        );
+    }
+
+    #[test]
+    fn generates_find_with_selection_methods() {
+        let ir = SchemaIR::from_schema(TEST_SCHEMA).unwrap();
+        let code = RustGenerator::generate(&ir).unwrap();
+
+        assert!(
+            code.contains("pub async fn find_many_with("),
+            "Missing find_many_with method"
+        );
+        assert!(
+            code.contains("pub async fn find_unique_with("),
+            "Missing find_unique_with method"
+        );
+        assert!(
+            code.contains("pub async fn find_first_with("),
+            "Missing find_first_with method"
+        );
+    }
+
+    #[test]
+    fn generates_transaction_method() {
+        let ir = SchemaIR::from_schema(TEST_SCHEMA).unwrap();
+        let code = RustGenerator::generate(&ir).unwrap();
+
+        assert!(
+            code.contains("pub async fn transaction(&self) -> Result<TransactionClient<'_>, ClientError>"),
+            "Missing transaction() method on generated PrismaClient"
+        );
+    }
+
+    #[test]
+    fn literal_default_values_parsed() {
+        let ir = SchemaIR::from_schema(TEST_SCHEMA).unwrap();
+        let post = &ir.models[1];
+
+        // 'published' has @default(false) -- should be parsed as FieldDefault::Value(false)
+        let published = post
+            .fields
+            .iter()
+            .find_map(|f| match f {
+                ModelField::Scalar(sf) if sf.name == "published" => Some(sf),
+                _ => None,
+            })
+            .expect("published field not found");
+        match &published.default {
+            Some(FieldDefault::Value(v)) => {
+                assert_eq!(v, &serde_json::Value::Bool(false));
+            }
+            other => panic!("Expected FieldDefault::Value(false), got: {:?}", other),
+        }
     }
 }

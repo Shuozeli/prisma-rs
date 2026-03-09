@@ -316,7 +316,29 @@ fn build_scalar_field(sf: walkers::ScalarFieldWalker<'_>, enum_names: &[String])
         } else if d.is_dbgenerated() {
             Some(FieldDefault::DbGenerated(String::new()))
         } else {
-            None
+            // Literal default value (e.g., @default(false), @default(0), @default(""))
+            match d.value() {
+                psl::schema_ast::ast::Expression::NumericValue(s, _) => {
+                    if let Ok(n) = s.parse::<i64>() {
+                        Some(FieldDefault::Value(serde_json::Value::Number(n.into())))
+                    } else if let Ok(f) = s.parse::<f64>() {
+                        serde_json::Number::from_f64(f).map(|n| FieldDefault::Value(serde_json::Value::Number(n)))
+                    } else {
+                        None
+                    }
+                }
+                psl::schema_ast::ast::Expression::StringValue(s, _) => {
+                    Some(FieldDefault::Value(serde_json::Value::String(s.clone())))
+                }
+                // Boolean and enum constants use ConstantValue (e.g., true, false, USER)
+                psl::schema_ast::ast::Expression::ConstantValue(s, _) => match s.as_str() {
+                    "true" => Some(FieldDefault::Value(serde_json::Value::Bool(true))),
+                    "false" => Some(FieldDefault::Value(serde_json::Value::Bool(false))),
+                    // Enum default (e.g., @default(USER))
+                    _ => Some(FieldDefault::Value(serde_json::Value::String(s.clone()))),
+                },
+                _ => None,
+            }
         }
     });
 
