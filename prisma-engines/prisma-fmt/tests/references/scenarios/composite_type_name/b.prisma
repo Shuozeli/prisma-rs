@@ -1,5 +1,0 @@
-model User {
-  id       String  @id @map("_id")
-  authorId String
-  address  Address
-}

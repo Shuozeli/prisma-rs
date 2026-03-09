@@ -1,8 +1,0 @@
-datasource my_db {
-    provider = "sqlserver"
-}
-
-generator client {
-    provider = "prisma-client-js"
-    output    = "@prisma/client"
-}

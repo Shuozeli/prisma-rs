@@ -1,7 +1,0 @@
-datasource my_db {
-  provider = "mongodb"
-}
-
-generator client {
-  provider = "prisma-client-js"
-}

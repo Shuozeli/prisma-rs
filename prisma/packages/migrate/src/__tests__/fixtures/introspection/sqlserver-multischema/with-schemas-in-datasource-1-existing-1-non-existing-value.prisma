@@ -1,8 +1,0 @@
-datasource db {
-  provider = "sqlserver"
-  schemas  = ["does-not-exist", "base"]
-}
-
-generator client {
-  provider = "prisma-client-js"
-}

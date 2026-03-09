@@ -1,8 +1,0 @@
-generator js {
-    provider        = "prisma-client"
-    previewFeatures = ["views"]
-}
-
-datasource db {
-    provider = "postgres"
-}

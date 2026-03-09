@@ -1,5 +1,0 @@
-model A {
-    id    Int @id
-    field Int
-    B     B[]
-}

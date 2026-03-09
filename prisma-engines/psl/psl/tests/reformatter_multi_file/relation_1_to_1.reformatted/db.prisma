@@ -1,7 +1,0 @@
-datasource db {
-  provider = "sqlite"
-}
-
-generator client {
-  provider = "prisma-client"
-}

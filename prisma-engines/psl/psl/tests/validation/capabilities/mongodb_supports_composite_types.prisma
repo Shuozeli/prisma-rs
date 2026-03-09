@@ -1,8 +1,0 @@
-datasource mydb {
-    provider = "mongodb"
-}
-
-
-type Address {
-    street String
-}

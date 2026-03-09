@@ -1,9 +1,0 @@
-[package]
-name = "diagnostics"
-version = "0.1.0"
-edition.workspace = true
-
-[dependencies]
-colored.workspace = true
-pest.workspace = true
-indoc.workspace = true

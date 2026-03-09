@@ -1,7 +1,0 @@
-datasource my_db {
-    provider = "sqlite"
-}
-
-model User {
-    id Int @id
-}

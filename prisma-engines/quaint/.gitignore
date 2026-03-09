@@ -1,8 +1,0 @@
-**/target
-**/*.rs.bk
-.direnv/
-.vscode/
-
-docker-compose.override.yml
-db/
-!db/.gitkeep

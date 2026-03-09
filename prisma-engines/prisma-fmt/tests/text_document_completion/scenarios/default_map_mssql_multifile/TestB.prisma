@@ -1,4 +1,0 @@
-model TestB {
-    id   String @id
-    name Int
-}

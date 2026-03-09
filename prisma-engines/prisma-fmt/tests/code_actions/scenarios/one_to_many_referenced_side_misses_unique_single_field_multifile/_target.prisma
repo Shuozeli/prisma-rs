@@ -1,5 +1,0 @@
-model B {
-  id  Int @id
-  bId Int
-  A   A   @relation(fields: [bId], references: [field])
-}

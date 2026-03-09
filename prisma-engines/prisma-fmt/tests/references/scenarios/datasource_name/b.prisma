@@ -1,4 +1,0 @@
-model User {
-  id  String @id @map("_id") @db.String
-  pet Pet
-}

@@ -1,5 +1,0 @@
-datasource db {
-    provider     = "postgresql"
-    schemas      = ["a", "b"]
-    relationMode = "prisma"
-}

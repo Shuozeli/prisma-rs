@@ -1,4 +1,0 @@
-model Test {
-    id Int @id
-    name String @default(<|>)
-}

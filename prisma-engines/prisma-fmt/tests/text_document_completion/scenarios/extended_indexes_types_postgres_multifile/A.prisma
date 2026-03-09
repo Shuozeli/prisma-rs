@@ -1,6 +1,0 @@
-model A {
-  id  Int    @id
-  val String
-
-  @@index([val], type: <|>)
-}

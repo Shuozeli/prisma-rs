@@ -1,7 +1,0 @@
-[package]
-name = "shared-wasm"
-version = "0.1.0"
-edition.workspace = true
-
-[dependencies]
-serde-wasm-bindgen.workspace = true

@@ -1,5 +1,0 @@
-model Post {
-  id       String    @id @map("_id")
-  authorId String
-  UserTwo  User<|>Two[]
-}

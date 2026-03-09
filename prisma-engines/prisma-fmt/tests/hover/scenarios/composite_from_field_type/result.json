@@ -1,6 +1,0 @@
-{
-  "contents": {
-    "kind": "markdown",
-    "value": "```prisma\ntype Address {}\n```\n___\nAddress Doc"
-  }
-}

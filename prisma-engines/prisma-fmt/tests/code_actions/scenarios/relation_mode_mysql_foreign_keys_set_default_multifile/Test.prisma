@@ -1,5 +1,0 @@
-// This is a test enum.
-enum Test {
-    TestUno
-    TestDue
-}

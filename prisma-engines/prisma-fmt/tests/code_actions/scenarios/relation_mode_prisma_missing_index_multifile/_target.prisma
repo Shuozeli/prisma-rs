@@ -1,5 +1,0 @@
-model Post {
-    id     Int      @id
-    userId Int
-    user   SomeUser @relation(fields: [userId], references: [id])
-}

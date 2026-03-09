@@ -1,7 +1,0 @@
-model Compound {
-    id      String
-    name    String
-    UserTwo UserTwo[]
-
-    @@id([id, name])
-}
