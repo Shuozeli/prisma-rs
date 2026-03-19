@@ -67,7 +67,7 @@ jobs:
           -p prisma-codegen
           -p prisma-query-executor
           -p prisma-error
-          -p cross-compat
+          -p prisma-cross-compat
 
   test-integration:
     name: Integration Tests

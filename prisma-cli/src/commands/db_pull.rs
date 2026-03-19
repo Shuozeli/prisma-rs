@@ -3,8 +3,8 @@ use crate::error::CliError;
 use prisma_migrate::rpc_types::IntrospectParams;
 
 pub async fn run(schema_path: &str, url: Option<&str>) -> Result<(), CliError> {
-    config::validate_path_within_cwd(schema_path)?;
-    let content = config::load_schema(schema_path)?;
+    config::validate_path_within_cwd_async(schema_path).await?;
+    let content = config::load_schema_async(schema_path).await?;
     let db_url = config::resolve_url(url)?;
 
     let engine = prisma_migrate::create_engine(Some(content.clone()), Some(db_url), None)?;
@@ -35,7 +35,7 @@ pub async fn run(schema_path: &str, url: Option<&str>) -> Result<(), CliError> {
                 "Introspection returned an empty schema. Verify the database URL and that the database contains tables.".to_string(),
             ));
         }
-        std::fs::write(schema_path, &file.content)?;
+        tokio::fs::write(schema_path, &file.content).await?;
         println!("Introspected schema written to {schema_path}.");
     } else {
         return Err(CliError::Config(

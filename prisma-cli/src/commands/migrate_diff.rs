@@ -3,13 +3,13 @@ use crate::error::CliError;
 use prisma_migrate::rpc_types::{DiffParams, DiffTarget, SchemaContainer, SchemaFilter, SchemasContainer};
 
 pub async fn run(schema_path: &str, from: &str, to: &str, script: bool) -> Result<(), CliError> {
-    let content = config::load_schema(schema_path)?;
+    let content = config::load_schema_async(schema_path).await?;
     let url = config::resolve_url(None).ok();
 
     let engine = prisma_migrate::create_engine(Some(content.clone()), url, None)?;
 
-    let from_target = parse_diff_target(from, schema_path, &content)?;
-    let to_target = parse_diff_target(to, schema_path, &content)?;
+    let from_target = parse_diff_target(from, schema_path, &content).await?;
+    let to_target = parse_diff_target(to, schema_path, &content).await?;
 
     let params = DiffParams {
         from: from_target,
@@ -35,14 +35,14 @@ pub async fn run(schema_path: &str, from: &str, to: &str, script: bool) -> Resul
     Ok(())
 }
 
-fn parse_diff_target(spec: &str, schema_path: &str, schema_content: &str) -> Result<DiffTarget, CliError> {
+async fn parse_diff_target(spec: &str, schema_path: &str, schema_content: &str) -> Result<DiffTarget, CliError> {
     match spec {
         "empty" => Ok(DiffTarget::Empty),
         s if s.ends_with(".prisma") => {
             let content = if s == schema_path {
                 schema_content.to_string()
             } else {
-                config::load_schema(s)?
+                config::load_schema_async(s).await?
             };
             Ok(DiffTarget::SchemaDatamodel(SchemasContainer {
                 files: vec![SchemaContainer {

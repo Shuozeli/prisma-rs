@@ -26,43 +26,79 @@ client API. This is what generated client code uses at runtime.
 ## Usage Pattern
 
 ```rust
-let client = PrismaClientBuilder::new()
-    .schema(schema_str)
-    .database_url("postgresql://...")
+use prisma_client::{PrismaClient, PrismaClientBuilder, QueryBuilder, Operation};
+
+// Basic construction
+let client = PrismaClient::new(schema_str, &factory).await?;
+
+// With middleware and logging
+let client = PrismaClientBuilder::new(schema_str, &factory)
+    .middleware(my_middleware)
+    .log(LogConfig::new().level(LogLevel::Query))
+    .sql_comment(SqlComment::new().tag("app", "my-app"))
     .build()
     .await?;
 
-let users = client
-    .query("User", Operation::FindMany)
-    .select(Selection::scalars())
-    .exec()
-    .await?;
+// Execute a query
+let query = QueryBuilder::new("User", Operation::FindMany);
+let users = client.execute(&query).await?;
+
+// Disconnect
+client.disconnect().await?;
 ```
 
 ## Middleware
 
-Supports a middleware pipeline for intercepting queries:
+Supports a middleware pipeline for intercepting queries. Middleware is added
+via the builder, not on the client directly:
 
 ```rust
-client.use_middleware(|params, next| async {
-    println!("Query: {:?}", params.operation);
-    let result = next.run(params).await;
-    result
-});
-```
+use prisma_client::{Middleware, MiddlewareParams, MiddlewareNext, ClientError};
 
-## Accelerate
+struct TimingMiddleware;
 
-Optional HTTP-based query forwarding to Prisma Accelerate for edge caching:
+#[async_trait::async_trait]
+impl Middleware for TimingMiddleware {
+    async fn resolve(
+        &self,
+        params: MiddlewareParams,
+        next: MiddlewareNext<'_>,
+    ) -> Result<serde_json::Value, ClientError> {
+        let start = std::time::Instant::now();
+        let result = next.run(params).await;
+        println!("Query took {:?}", start.elapsed());
+        result
+    }
+}
 
-```rust
-let client = PrismaClientBuilder::new()
-    .accelerate_url("https://accelerate.prisma-data.net")
-    .api_key("your-key")
+let client = PrismaClientBuilder::new(schema, &factory)
+    .middleware(TimingMiddleware)
     .build()
     .await?;
 ```
 
+## Query Logging
+
+Structured query event logging with callback and tracing support:
+
+```rust
+use prisma_client::logging::{LogConfig, LogLevel, LogEmit};
+
+let config = LogConfig::new()
+    .level(LogLevel::Query)                        // Print to stderr
+    .log(LogLevel::Query, LogEmit::Event)          // Emit as tracing event
+    .on_query(|event| {                            // Programmatic callback
+        println!("{}: {}ms", event.action, event.duration_ms);
+    });
+```
+
+## Accelerate
+
+Optional HTTP-based query forwarding to Prisma Accelerate for edge caching.
+The `AccelerateClient` is available as a separate type.
+
 ## Dependencies
 
-`prisma-compiler`, `prisma-query-executor`, `prisma-driver-core`, `reqwest`
+`prisma-compiler`, `prisma-query-executor`, `prisma-driver-core`, `reqwest`, `tokio`, `tracing`, `chrono`
+
+Last updated: 2026-03-19

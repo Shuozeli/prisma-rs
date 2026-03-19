@@ -26,6 +26,17 @@ fn is_valid_migration_dir_name(name: &str) -> bool {
     name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-')
 }
 
+/// Async version of `load_migrations_from_disk` -- offloads blocking
+/// directory traversal to the tokio blocking thread pool.
+async fn load_migrations_from_disk_async(
+    migrations_dir: &std::path::Path,
+) -> Result<MigrationList, crate::error::CliError> {
+    let dir = migrations_dir.to_path_buf();
+    tokio::task::spawn_blocking(move || load_migrations_from_disk(&dir))
+        .await
+        .map_err(|e| crate::error::CliError::Config(format!("Task join error: {e}")))?
+}
+
 /// Load migrations from the filesystem into a MigrationList.
 fn load_migrations_from_disk(migrations_dir: &std::path::Path) -> Result<MigrationList, crate::error::CliError> {
     let base_dir = migrations_dir.to_string_lossy().to_string();

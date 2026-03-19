@@ -4,7 +4,7 @@ Arrow Flight SQL driver for remote database access over gRPC.
 
 ## Purpose
 
-Implements the `DatabaseDriver` trait using Apache Arrow Flight SQL protocol,
+Implements the `SqlQueryable` / `SqlDriverAdapter` traits using Apache Arrow Flight SQL protocol,
 enabling SQL execution against remote databases through gRPC transport.
 
 ## Public API
@@ -22,4 +22,6 @@ enabling SQL execution against remote databases through gRPC transport.
 
 ## Dependencies
 
-`prisma-driver-core`, `prisma-driver-adbc`, `arrow-flight`, `tonic`
+`prisma-driver-core`, `prisma-driver-adbc`, `arrow-flight` 56, `tonic` 0.13, `prost` 0.13
+
+Last updated: 2026-03-19

@@ -3,7 +3,7 @@ use crate::error::CliError;
 use prisma_migrate::rpc_types::{SchemaFilter, SchemaPushInput};
 
 pub async fn run(schema_path: &str, url: Option<&str>, accept_data_loss: bool) -> Result<(), CliError> {
-    let content = config::load_schema(schema_path)?;
+    let content = config::load_schema_async(schema_path).await?;
     let db_url = config::resolve_url(url)?;
 
     let engine = prisma_migrate::create_engine(Some(content.clone()), Some(db_url), None)?;

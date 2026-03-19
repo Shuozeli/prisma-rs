@@ -9,7 +9,7 @@ pub async fn run(schema_path: &str, force: bool, url: Option<&str>) -> Result<()
         ));
     }
 
-    let content = config::load_schema(schema_path)?;
+    let content = config::load_schema_async(schema_path).await?;
     let db_url = config::resolve_url(url)?;
 
     let engine = prisma_migrate::create_engine(Some(content), Some(db_url), None)?;

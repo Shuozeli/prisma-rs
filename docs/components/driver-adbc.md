@@ -4,7 +4,7 @@ Arrow Database Connectivity (ADBC) driver.
 
 ## Purpose
 
-Implements the `DatabaseDriver` trait using the ADBC protocol, converting
+Implements the `SqlQueryable` / `SqlDriverAdapter` traits using the ADBC protocol, converting
 Arrow columnar data into Prisma's row-oriented `ResultSet` format.
 
 ## Public API
@@ -23,4 +23,6 @@ Arrow columnar data into Prisma's row-oriented `ResultSet` format.
 
 ## Dependencies
 
-`prisma-driver-core`, `adbc_core`, `arrow-array`, `arrow-schema`
+`prisma-driver-core`, `adbc_core` 0.22, `arrow-array` 56, `arrow-schema` 56
+
+Last updated: 2026-03-19

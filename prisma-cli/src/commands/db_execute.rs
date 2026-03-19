@@ -5,11 +5,12 @@ use prisma_migrate::rpc_types::{DbExecuteDatasourceType, DbExecuteParams, UrlCon
 pub async fn run(schema_path: &str, url: Option<&str>, stdin: bool, file: Option<&str>) -> Result<(), CliError> {
     let script = if stdin {
         let mut buf = String::new();
-        std::io::Read::read_to_string(&mut std::io::stdin(), &mut buf)?;
-        buf
+        tokio::task::spawn_blocking(move || std::io::Read::read_to_string(&mut std::io::stdin(), &mut buf).map(|_| buf))
+            .await
+            .map_err(|e| CliError::Config(format!("Task join error: {e}")))??
     } else if let Some(file_path) = file {
-        config::validate_path_within_cwd(file_path)?;
-        std::fs::read_to_string(file_path).map_err(|e| {
+        config::validate_path_within_cwd_async(file_path).await?;
+        tokio::fs::read_to_string(file_path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 CliError::Config(format!("SQL file not found: {file_path}"))
             } else {
@@ -21,7 +22,7 @@ pub async fn run(schema_path: &str, url: Option<&str>, stdin: bool, file: Option
     };
 
     let db_url = config::resolve_url(url)?;
-    let content = config::load_schema(schema_path)?;
+    let content = config::load_schema_async(schema_path).await?;
 
     let engine = prisma_migrate::create_engine(Some(content), Some(db_url.clone()), None)?;
 

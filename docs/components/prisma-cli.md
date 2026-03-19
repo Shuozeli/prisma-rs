@@ -27,8 +27,8 @@ Uses `clap` for argument parsing.
 
 | Flag | Description |
 |------|-------------|
-| `--schema <path>` | Path to schema.prisma (default: `./schema.prisma`) |
-| `--datasource-url <url>` | Override the datasource URL |
+| `--schema <path>` | Path to schema.prisma (default: `prisma/schema.prisma`) |
+| `--url <url>` | Override the datasource URL (available on `db push`, `db pull`, `db execute`, and `migrate` subcommands) |
 
 ## Installation
 
@@ -39,3 +39,5 @@ cargo install --git https://github.com/Shuozeli/prisma-rs.git prisma-cli
 ## Dependencies
 
 `prisma-schema`, `prisma-codegen`, `prisma-migrate`, `clap`
+
+Last updated: 2026-03-19

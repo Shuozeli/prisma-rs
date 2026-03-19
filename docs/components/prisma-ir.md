@@ -12,7 +12,7 @@ prisma-engines) and the executor (which depends only on this crate).
 
 | Module | Key Types |
 |--------|-----------|
-| `expression` | `Expression` enum -- the top-level query plan tree (Get, Let, Seq, If, MapGet, etc.) |
+| `expression` | `Expression` enum -- the top-level query plan tree (Value, Seq, Get, Let, Query, Execute, Join, DataMap, Validate, If, Process, etc.) |
 | `query` | `DbQuery` enum (RawSql, TemplateSql), `Fragment`, `PlaceholderFormat` |
 | `result_node` | `ResultNode` -- how to shape query results |
 | `rule` | `DataRule` enum (RowCountEq, RowCountNeq, AffectedRowCountEq, Never) |
@@ -37,3 +37,5 @@ this crate must be updated to match.
 ## Dependencies
 
 `serde`, `serde_json`, `indexmap`, `base64` (no prisma-engines dependency)
+
+Last updated: 2026-03-19

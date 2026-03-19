@@ -3,7 +3,7 @@ use crate::error::CliError;
 use prisma_migrate::rpc_types::{CreateMigrationInput, SchemaFilter};
 
 pub async fn run(schema_path: &str, name: &str, create_only: bool, url: Option<&str>) -> Result<(), CliError> {
-    let content = config::load_schema(schema_path)?;
+    let content = config::load_schema_async(schema_path).await?;
     let db_url = config::resolve_url(url)?;
 
     let engine = prisma_migrate::create_engine(Some(content.clone()), Some(db_url), None)?;
@@ -12,11 +12,11 @@ pub async fn run(schema_path: &str, name: &str, create_only: bool, url: Option<&
         .parent()
         .unwrap_or(std::path::Path::new("."))
         .join("migrations");
-    std::fs::create_dir_all(&migrations_dir)?;
+    tokio::fs::create_dir_all(&migrations_dir).await?;
 
     // First run dev diagnostic to check if we need to reset
     let diag_input = prisma_migrate::rpc_types::DevDiagnosticInput {
-        migrations_list: super::load_migrations_from_disk(&migrations_dir)?,
+        migrations_list: super::load_migrations_from_disk_async(&migrations_dir).await?,
         filters: SchemaFilter::default(),
     };
 
@@ -44,7 +44,7 @@ pub async fn run(schema_path: &str, name: &str, create_only: bool, url: Option<&
         draft: create_only,
         migration_name: name.to_string(),
         schema: config::schemas_container(schema_path, &content),
-        migrations_list: super::load_migrations_from_disk(&migrations_dir)?,
+        migrations_list: super::load_migrations_from_disk_async(&migrations_dir).await?,
         filters: SchemaFilter::default(),
     };
 
@@ -57,15 +57,15 @@ pub async fn run(schema_path: &str, name: &str, create_only: bool, url: Option<&
         let dir_name = &output.generated_migration_name;
         // Write the migration file to disk
         let migration_dir = migrations_dir.join(dir_name);
-        std::fs::create_dir_all(&migration_dir)?;
+        tokio::fs::create_dir_all(&migration_dir).await?;
         if let Some(script) = &output.migration_script {
-            std::fs::write(migration_dir.join("migration.sql"), script)?;
+            tokio::fs::write(migration_dir.join("migration.sql"), script).await?;
         }
         println!("Created migration: {dir_name}");
 
         if !create_only {
             // Apply all pending migrations
-            let updated_list = super::load_migrations_from_disk(&migrations_dir)?;
+            let updated_list = super::load_migrations_from_disk_async(&migrations_dir).await?;
             let apply_input = prisma_migrate::rpc_types::ApplyMigrationsInput {
                 migrations_list: updated_list,
                 filters: SchemaFilter::default(),

@@ -25,9 +25,12 @@ Sixteen crates in a Cargo workspace:
 
 ### driver-core
 
-Database driver trait and common types. Defines `DatabaseDriver` trait,
-`ResultSet`, `DriverError`, `MappedError`, and value types (`PrismaValue`).
-All database drivers implement this trait.
+Database driver trait hierarchy and common types. Defines `SqlQueryable`,
+`SqlDriverAdapter`, `SqlDriverAdapterFactory` traits, `SqlResultSet`,
+`QueryValue`, `DriverError`, `MappedError`, `DatabaseUrl` (credential
+redaction), `SafeMessage` (secret parameterization), and `StaticSql`
+(compile-time SQL injection prevention). All database drivers implement
+these traits.
 
 ### driver-pg
 
@@ -47,7 +50,7 @@ dynamic typing system and maps to `PrismaValue`.
 
 ### driver-duckdb
 
-DuckDB driver built on the ADBC (Arrow Database Connectivity) layer.
+DuckDB driver using the bundled `duckdb` crate (direct C library binding).
 Provides analytical database support.
 
 ### driver-adbc
@@ -116,15 +119,19 @@ URL validation, and migration file management.
 
 ## Key Types
 
-- `DatabaseDriver` (driver-core): Async trait for database operations
-  (execute, query, start_transaction)
-- `ResultSet` (driver-core): Query result with column names and typed rows
-- `PrismaValue` (driver-core): Enum of all supported value types
-  (String, Int, Float, Boolean, DateTime, Json, Bytes, Null, etc.)
+- `SqlQueryable` (driver-core): Core async trait for executing SQL queries
+  (query_raw, execute_raw, start_transaction)
+- `SqlDriverAdapter` (driver-core): Database connection trait extending SqlQueryable
+  with execute_script, connection_info, and dispose
+- `SqlResultSet` (driver-core): Query result with column names, types, and typed rows
+- `QueryValue` (driver-core): Typed query parameter value
+  (Null, Boolean, Int32, Int64, Float, Double, Numeric, Text, Bytes, Uuid, DateTime, Json, Array)
 - `DriverError` (driver-core): Error with mapped variant for
   constraint violations, auth failures, connection issues
-- `DataModel` (prisma-schema): Complete schema representation
-- `QueryPlan` (prisma-compiler): Compiled query ready for execution
+- `Expression` (prisma-ir): Compiled query plan tree (Get, Let, Seq, Query, Join, etc.)
+- `PrismaValue` (prisma-ir): Typed value in query plans
+  (Null, Boolean, Int, BigInt, Float, String, DateTime, Uuid, Bytes, Json, List, Object, Placeholder, GeneratorCall)
+- `DatabaseUrl` (driver-core): Parsed URL with credential redaction in Display/Debug
 
 ## Dependencies
 

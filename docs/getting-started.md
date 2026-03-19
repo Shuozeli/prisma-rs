@@ -98,12 +98,19 @@ prisma db pull --schema schema.prisma
 If running from source instead of an installed binary, replace `prisma` with
 `cargo run -p prisma-cli --`.
 
+Note: The default schema path is `prisma/schema.prisma`. Use `--schema <path>`
+to specify a different location.
+
 ## Database Setup
 
 ### PostgreSQL
 
 ```bash
-# Using Docker
+# Using docker-compose (recommended -- matches test configuration)
+make docker-up
+export DATABASE_URL="postgresql://prisma:prisma@localhost:15432/prisma_test"
+
+# Or using Docker directly
 docker run -d --name postgres \
   -e POSTGRES_USER=prisma \
   -e POSTGRES_PASSWORD=prisma \
@@ -117,7 +124,11 @@ export DATABASE_URL="postgresql://prisma:prisma@localhost:5432/prisma"
 ### MySQL
 
 ```bash
-# Using Docker
+# Using docker-compose (recommended -- matches test configuration)
+make docker-up
+export DATABASE_URL="mysql://prisma:prisma@localhost:13306/prisma_test"
+
+# Or using Docker directly
 docker run -d --name mysql \
   -e MYSQL_ROOT_PASSWORD=prisma \
   -e MYSQL_DATABASE=prisma \
@@ -147,3 +158,5 @@ cargo test -p driver-pg
 # With database integration tests (requires running databases)
 cargo test -p cross-compat
 ```
+
+Last updated: 2026-03-19

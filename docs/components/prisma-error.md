@@ -24,4 +24,6 @@ Standard Prisma error codes are preserved:
 
 ## Dependencies
 
-`prisma-driver-core`, `user-facing-errors` (from prisma-engines)
+`prisma-driver-core`, `user-facing-errors` (from prisma-engines, git rev 94a226b)
+
+Last updated: 2026-03-19

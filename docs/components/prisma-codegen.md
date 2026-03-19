@@ -37,4 +37,6 @@ and Rust output targets through a language-neutral schema IR.
 
 ## Dependencies
 
-`prisma-schema`, `psl`
+`prisma-schema`, `psl` (from prisma-engines, git rev 94a226b)
+
+Last updated: 2026-03-19

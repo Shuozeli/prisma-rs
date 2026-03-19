@@ -3,6 +3,24 @@ use std::path::Path;
 use crate::error::CliError;
 use prisma_migrate::rpc_types::{SchemaContainer, SchemasContainer};
 
+/// Async version of `validate_path_within_cwd` -- offloads blocking I/O
+/// (canonicalize, exists) to the tokio blocking thread pool.
+pub async fn validate_path_within_cwd_async(path: &str) -> Result<std::path::PathBuf, CliError> {
+    let path = path.to_string();
+    tokio::task::spawn_blocking(move || validate_path_within_cwd(&path))
+        .await
+        .map_err(|e| CliError::Config(format!("Task join error: {e}")))?
+}
+
+/// Async version of `load_schema` -- offloads blocking file I/O to the
+/// tokio blocking thread pool.
+pub async fn load_schema_async(path: &str) -> Result<String, CliError> {
+    let path = path.to_string();
+    tokio::task::spawn_blocking(move || load_schema(&path))
+        .await
+        .map_err(|e| CliError::Config(format!("Task join error: {e}")))?
+}
+
 /// Validate that a file path does not escape the current working directory.
 ///
 /// Prevents path traversal attacks (e.g. `../../etc/passwd`) by resolving the

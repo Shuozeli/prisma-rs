@@ -29,9 +29,15 @@ Tests use `insta` for snapshot testing. Each test:
 Update snapshots after intentional changes:
 
 ```bash
-UPDATE_GOLDEN=1 cargo test -p cross-compat
+# Review and accept snapshot changes interactively
+cargo insta review
+
+# Or accept all snapshot changes
+cargo insta accept
 ```
 
 ## Dependencies
 
-`prisma-compiler`, `prisma-schema`, `prisma-driver-core`, `insta` (dev)
+`prisma-compiler`, `prisma-schema`, `prisma-driver-core`, `insta` (dev, with json + redactions features)
+
+Last updated: 2026-03-19

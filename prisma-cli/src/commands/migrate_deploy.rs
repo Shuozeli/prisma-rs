@@ -3,7 +3,7 @@ use crate::error::CliError;
 use prisma_migrate::rpc_types::SchemaFilter;
 
 pub async fn run(schema_path: &str, url: Option<&str>) -> Result<(), CliError> {
-    let content = config::load_schema(schema_path)?;
+    let content = config::load_schema_async(schema_path).await?;
     let db_url = config::resolve_url(url)?;
 
     let engine = prisma_migrate::create_engine(Some(content), Some(db_url), None)?;
@@ -13,7 +13,7 @@ pub async fn run(schema_path: &str, url: Option<&str>) -> Result<(), CliError> {
         .unwrap_or(std::path::Path::new("."))
         .join("migrations");
 
-    let migrations_list = super::load_migrations_from_disk(&migrations_dir)?;
+    let migrations_list = super::load_migrations_from_disk_async(&migrations_dir).await?;
 
     let input = prisma_migrate::rpc_types::ApplyMigrationsInput {
         migrations_list,
