@@ -118,7 +118,7 @@ pub fn duckdb_owned_value_to_result(value: duckdb::types::Value, col_type: Colum
             ResultValue::DateTime(s)
         }
         duckdb::types::Value::Date32(days) => {
-            let epoch = chrono::NaiveDate::from_ymd_opt(1970, 1, 1).unwrap();
+            let epoch = chrono::NaiveDate::from_ymd_opt(1970, 1, 1).expect("1970-01-01 is a valid date");
             let date = epoch + chrono::Duration::days(days as i64);
             ResultValue::Date(date.format("%Y-%m-%d").to_string())
         }

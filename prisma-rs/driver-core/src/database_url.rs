@@ -44,7 +44,11 @@ impl DatabaseUrl {
     pub fn parse(raw: &str) -> Result<Self, DatabaseUrlError> {
         let mut parsed = Url::parse(raw).map_err(|e| DatabaseUrlError::InvalidUrl { message: e.to_string() })?;
 
-        let password = parsed.password().map(|p| p.to_string());
+        let password = parsed.password().map(|p| {
+            // Url::password() returns percent-encoded form; decode it
+            // so expose_password() returns the actual password.
+            percent_encoding::percent_decode_str(p).decode_utf8_lossy().into_owned()
+        });
 
         // Replace password in the parsed URL so Display/Debug are always safe
         if password.is_some() {
@@ -219,17 +223,20 @@ mod tests {
 
     #[test]
     fn empty_password() {
+        // The url crate treats "user:@host" as having no password (None),
+        // not an empty password. This is consistent with RFC 3986.
         let url = DatabaseUrl::parse("postgres://user:@localhost:5432/db").unwrap();
-        assert_eq!(url.expose_password(), Some(""));
-        // Even empty password gets redacted
-        assert!(url.to_string().contains("***"));
+        assert_eq!(url.expose_password(), None);
+        // No password means no redaction marker
+        assert!(!url.to_string().contains("***"));
     }
 
     #[test]
     fn password_with_special_chars() {
         let url = DatabaseUrl::parse("postgres://user:p%40ss%23word@localhost:5432/db").unwrap();
-        assert_eq!(url.expose_password(), Some("p%40ss%23word"));
-        assert!(!url.to_string().contains("p%40ss"));
+        // Password is percent-decoded so the real password is returned
+        assert_eq!(url.expose_password(), Some("p@ss#word"));
+        assert!(!url.to_string().contains("p@ss"));
     }
 
     #[test]

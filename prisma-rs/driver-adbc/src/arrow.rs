@@ -145,7 +145,7 @@ fn arrow_value_to_result(array: &dyn Array, row: usize) -> ResultValue {
         DataType::Date32 => {
             let arr = array.as_any().downcast_ref::<arrow_array::Date32Array>().unwrap();
             let days = arr.value(row);
-            let epoch = chrono::NaiveDate::from_ymd_opt(1970, 1, 1).unwrap();
+            let epoch = chrono::NaiveDate::from_ymd_opt(1970, 1, 1).expect("1970-01-01 is a valid date");
             let date = epoch + chrono::Duration::days(days as i64);
             ResultValue::Date(date.format("%Y-%m-%d").to_string())
         }
@@ -337,7 +337,7 @@ pub fn query_values_to_record_batch(args: &[QueryValue]) -> RecordBatch {
     }
 
     let schema = Arc::new(Schema::new(fields));
-    RecordBatch::try_new(schema, columns).unwrap()
+    RecordBatch::try_new(schema, columns).expect("schema and columns built in lockstep must be consistent")
 }
 
 #[cfg(test)]
