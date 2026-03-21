@@ -1,3 +1,0 @@
-cargo:rerun-if-changed=tests/validation
-cargo:rerun-if-changed=tests/reformatter
-cargo:rerun-if-changed=tests/reformatter_multi_file
