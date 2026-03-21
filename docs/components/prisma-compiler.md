@@ -43,6 +43,4 @@ prisma-engines directly.
 
 ## Dependencies
 
-`query-compiler`, `query-core`, `quaint`, `psl`, `request-handlers`, `schema` (all from prisma-engines git rev 94a226b), `prisma-ir`
-
-Last updated: 2026-03-19
+`query-compiler`, `query-core`, `quaint`, `psl`, `prisma-ir` (all from prisma-engines except prisma-ir)

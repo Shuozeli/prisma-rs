@@ -35,7 +35,6 @@ pub struct PrismaClient {
     log_config: LogConfig,
     result_extensions: Vec<Box<dyn ResultExtension>>,
     sql_comment: Option<SqlComment>,
-    disposed: bool,
 }
 
 /// Builder for configuring a `PrismaClient` with middleware, logging,
@@ -113,7 +112,6 @@ impl<'a> PrismaClientBuilder<'a> {
             log_config: self.log_config,
             result_extensions: self.result_extensions,
             sql_comment: self.sql_comment,
-            disposed: false,
         })
     }
 }
@@ -223,16 +221,6 @@ impl PrismaClient {
         let mut adapter = self.adapter.lock().await;
         (**adapter).dispose().await?;
         Ok(())
-    }
-}
-
-impl Drop for PrismaClient {
-    fn drop(&mut self) {
-        if !self.disposed {
-            // Check if adapter is still held (not yet disposed).
-            // Since we use Mutex, we can't easily check, so we skip the warning
-            // to avoid false positives when disconnect() was called.
-        }
     }
 }
 

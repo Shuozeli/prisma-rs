@@ -4,9 +4,8 @@ DuckDB driver implementation.
 
 ## Purpose
 
-Implements the `SqlQueryable` / `SqlDriverAdapter` traits for DuckDB,
-targeting analytics and OLAP workloads. Uses the `duckdb` crate with
-bundled DuckDB C library (direct binding, not via ADBC).
+Implements the `DatabaseDriver` trait for DuckDB, targeting analytics
+and OLAP workloads. Uses DuckDB's bundled C library.
 
 ## Public API
 
@@ -17,6 +16,4 @@ bundled DuckDB C library (direct binding, not via ADBC).
 
 ## Dependencies
 
-`prisma-driver-core`, `duckdb` 1.4 (bundled)
-
-Last updated: 2026-03-19
+`prisma-driver-core`, `duckdb` (bundled)

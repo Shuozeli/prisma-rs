@@ -4,7 +4,7 @@ PostgreSQL driver implementation.
 
 ## Purpose
 
-Implements the `SqlQueryable` / `SqlDriverAdapter` traits for PostgreSQL using `tokio-postgres`
+Implements the `DatabaseDriver` trait for PostgreSQL using `tokio-postgres`
 with `deadpool-postgres` connection pooling and `rustls` TLS support.
 
 ## Public API
@@ -36,7 +36,4 @@ Maps PostgreSQL native types to `QueryValue`:
 
 ## Dependencies
 
-`prisma-driver-core`, `tokio-postgres`, `deadpool-postgres`, `tokio-postgres-rustls`,
-`rustls`, `rustls-native-certs`
-
-Last updated: 2026-03-19
+`prisma-driver-core`, `tokio-postgres`, `deadpool-postgres`, `rustls`

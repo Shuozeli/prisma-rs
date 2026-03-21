@@ -13,40 +13,29 @@ query execution in the middle, and the CLI/client at the top.
                          /     |     \
                         /      |      \
               prisma-client  prisma-migrate  prisma-codegen
-               /         \                       |
-       prisma-compiler  query-executor      prisma-schema
-            |    \          |
-         prisma-ir  \   prisma-driver-core  <--+--+--+--+--+
-            |    prisma-engines   ^             |  |  |  |  |
-            |    (git deps)      |         driver-pg  |  |  |  |
-            |                    |     driver-mysql  |  |  |
-            |                    |    driver-sqlite  |  |
-            |                    |   driver-duckdb   |
-            |                    |   driver-adbc <-- driver-flightsql
-            |                    |
-          prisma-error ----------+
+                    |            |               |
+               query-executor   |          prisma-schema
+                /    |    \     |
+               /     |     \   |
+          driver-pg  |  driver-sqlite
+                     |
+               driver-mysql
+                     |
+                driver-core  <-- driver-duckdb, driver-adbc, driver-flightsql
+                     |
+                prisma-error
 ```
-
-Notes:
-- `prisma-error` depends on `prisma-driver-core` (not the reverse)
-- `query-executor` depends on `prisma-ir` and `prisma-driver-core` (no prisma-engines dependency)
-- `prisma-compiler` depends on prisma-engines crates (git) and `prisma-ir`
-- `prisma-client` depends on `prisma-compiler`, `query-executor`, and `prisma-driver-core`
-- `driver-flightsql` depends on `driver-adbc` for Arrow type conversion
 
 ## Layer Description
 
 ### Layer 1: Database Drivers
 
-The driver layer provides a unified trait hierarchy (`SqlQueryable`, `SqlDriverAdapter`,
-`SqlDriverAdapterFactory`) that abstracts database-specific behavior. Each driver
-translates between the database's native wire protocol and Prisma's internal
-`SqlResultSet` / `QueryValue` types.
+The driver layer provides a unified `DatabaseDriver` trait that abstracts
+database-specific behavior. Each driver translates between the database's
+native wire protocol and Prisma's internal `ResultSet` / `PrismaValue` types.
 
-- **driver-core**: Defines the `SqlQueryable`, `Transaction`, `SqlDriverAdapter`,
-  `SqlDriverAdapterFactory` traits, plus `SqlResultSet`, `QueryValue`, `DriverError`,
-  `MappedError`, `DatabaseUrl`, `SafeMessage`, and `StaticSql`. All drivers depend
-  on this crate.
+- **driver-core**: Defines the `DatabaseDriver` trait, `ResultSet`, `PrismaValue`,
+  `DriverError`, and `MappedError`. All drivers depend on this crate.
 - **driver-pg**: PostgreSQL via `tokio-postgres` with `deadpool-postgres` pooling
   and `rustls` TLS.
 - **driver-mysql**: MySQL via `mysql_async` with built-in pooling.
@@ -96,8 +85,7 @@ Errors flow upward through the layers using `thiserror`-derived types:
 3. **Schema errors**: Parsing and validation errors from malformed schemas.
 4. **CLI errors**: User-facing errors with actionable messages.
 
-All production execution paths return `Result` types. Panics are reserved for
-programmer errors and unsupported configurations in utility/test code.
+All production paths return `Result` types. Panics are prohibited.
 
 ## Connection Management
 
@@ -111,9 +99,8 @@ programmer errors and unsupported configurations in utility/test code.
 - Path traversal prevention: All file paths validated against the working directory.
 - Database URL scheme validation: Only known schemes accepted.
 - Migration name validation: Rejects path separators and `..` sequences.
-- Bind parameter limits: Each provider enforces a maximum bind parameter count
-  per query (PostgreSQL: 32,766, MySQL: 65,535, SQLite: 999) via
-  `Provider::max_bind_values()`.
+- Pagination bounds: Skip/take capped at 100,000 to prevent DoS.
+- Array parameter limits: PostgreSQL IN-clause arrays capped at 32,768.
 - Error body truncation: External API error responses truncated to prevent
   memory exhaustion.
 
@@ -129,12 +116,10 @@ programmer errors and unsupported configurations in utility/test code.
 3. Executor interprets IR
    Expression tree -> query-executor walks the tree:
      - Let bindings set up scope variables
-     - Query/Execute nodes run SQL via the driver
-     - Seq nodes run expressions in order
+     - Get nodes execute SQL via the driver
+     - Seq nodes run queries in order
      - If nodes evaluate DataRules on results
-     - Join nodes perform application-level relation joining
-     - DataMap nodes shape results via ResultNode rules
-     - Process nodes apply in-memory pagination, distinct, and reverse
+     - MapGet nodes batch related queries
 
 4. SQL rendering
    DbQuery (template) -> render_query() -> SqlQuery (concrete SQL + bound params)
@@ -165,11 +150,11 @@ Detailed documentation for each crate is in [`docs/components/`](components/):
 
 | Crate | Purpose |
 |-------|---------|
-| [driver-core](components/driver-core.md) | SqlQueryable/SqlDriverAdapter traits and shared types |
+| [driver-core](components/driver-core.md) | Database driver trait and shared types |
 | [driver-pg](components/driver-pg.md) | PostgreSQL driver (tokio-postgres + deadpool) |
 | [driver-mysql](components/driver-mysql.md) | MySQL driver (mysql_async) |
 | [driver-sqlite](components/driver-sqlite.md) | SQLite driver (rusqlite bundled) |
-| [driver-duckdb](components/driver-duckdb.md) | DuckDB driver (bundled duckdb crate) |
+| [driver-duckdb](components/driver-duckdb.md) | DuckDB driver (bundled) |
 | [driver-adbc](components/driver-adbc.md) | ADBC protocol driver (Arrow-based) |
 | [driver-flightsql](components/driver-flightsql.md) | Arrow Flight SQL driver (gRPC) |
 | [prisma-schema](components/prisma-schema.md) | Schema parsing, validation, DMMF |
@@ -182,5 +167,3 @@ Detailed documentation for each crate is in [`docs/components/`](components/):
 | [prisma-error](components/prisma-error.md) | Error type bridge (driver <-> prisma-engines) |
 | [prisma-migrate](components/prisma-migrate.md) | Schema migration engine (RPC bridge) |
 | [cross-compat](components/cross-compat.md) | Cross-compatibility testing harness |
-
-Last updated: 2026-03-19

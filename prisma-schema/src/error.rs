@@ -8,9 +8,6 @@ pub enum SchemaError {
     #[error("DMMF generation failed: {0}")]
     Dmmf(String),
 
-    #[error("Config extraction failed: {0}")]
-    Config(String),
-
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 }
