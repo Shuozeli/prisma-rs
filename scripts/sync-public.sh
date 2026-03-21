@@ -138,7 +138,7 @@ log "  Found $CRATE_COUNT workspace members"
 
 # Root-level files (explicit list -- add new files here as needed)
 ROOT_FILES=(
-    README.md LICENSE llms.txt Cargo.toml Cargo.lock
+    .gitignore README.md LICENSE llms.txt Cargo.toml Cargo.lock
     Makefile docker-compose.yml rust-toolchain.toml rustfmt.toml
 )
 for f in "${ROOT_FILES[@]}"; do
