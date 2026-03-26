@@ -1,7 +1,7 @@
 use mysql_async::consts::ColumnFlags;
 use mysql_async::consts::ColumnType as MysqlColumnType;
 use mysql_async::{Row, Value as MysqlValue};
-use prisma_driver_core::{ColumnType, QueryValue, ResultValue};
+use prisma_driver_core::{ColumnType, DriverError, MappedError, QueryValue, ResultValue};
 
 /// Map a mysql_async column type to a Prisma `ColumnType`.
 pub fn mysql_type_to_column_type(col_type: MysqlColumnType, flags: ColumnFlags) -> ColumnType {
@@ -62,23 +62,25 @@ pub fn mysql_type_to_column_type(col_type: MysqlColumnType, flags: ColumnFlags) 
 }
 
 /// Convert a `QueryValue` into a `mysql_async::Value`.
-pub fn query_value_to_mysql(value: &QueryValue) -> MysqlValue {
+pub fn query_value_to_mysql(value: &QueryValue) -> Result<MysqlValue, DriverError> {
     match value {
-        QueryValue::Null => MysqlValue::NULL,
-        QueryValue::Boolean(v) => MysqlValue::from(*v),
-        QueryValue::Int32(v) => MysqlValue::from(*v),
-        QueryValue::Int64(v) => MysqlValue::from(*v),
-        QueryValue::Float(v) => MysqlValue::from(*v),
-        QueryValue::Double(v) => MysqlValue::from(*v),
-        QueryValue::Numeric(v) => MysqlValue::from(v.to_string()),
-        QueryValue::Text(v) => MysqlValue::from(v.as_str()),
-        QueryValue::Bytes(v) => MysqlValue::from(v.as_slice()),
-        QueryValue::Uuid(v) => MysqlValue::from(v.to_string()),
-        QueryValue::DateTime(v) => MysqlValue::from(v.format("%Y-%m-%d %H:%M:%S%.f").to_string()),
-        QueryValue::Date(v) => MysqlValue::from(v.format("%Y-%m-%d").to_string()),
-        QueryValue::Time(v) => MysqlValue::from(v.format("%H:%M:%S%.f").to_string()),
-        QueryValue::Json(v) => MysqlValue::from(v.to_string()),
-        QueryValue::Array(_) => MysqlValue::NULL,
+        QueryValue::Null => Ok(MysqlValue::NULL),
+        QueryValue::Boolean(v) => Ok(MysqlValue::from(*v)),
+        QueryValue::Int32(v) => Ok(MysqlValue::from(*v)),
+        QueryValue::Int64(v) => Ok(MysqlValue::from(*v)),
+        QueryValue::Float(v) => Ok(MysqlValue::from(*v)),
+        QueryValue::Double(v) => Ok(MysqlValue::from(*v)),
+        QueryValue::Numeric(v) => Ok(MysqlValue::from(v.to_string())),
+        QueryValue::Text(v) => Ok(MysqlValue::from(v.as_str())),
+        QueryValue::Bytes(v) => Ok(MysqlValue::from(v.as_slice())),
+        QueryValue::Uuid(v) => Ok(MysqlValue::from(v.to_string())),
+        QueryValue::DateTime(v) => Ok(MysqlValue::from(v.format("%Y-%m-%d %H:%M:%S%.f").to_string())),
+        QueryValue::Date(v) => Ok(MysqlValue::from(v.format("%Y-%m-%d").to_string())),
+        QueryValue::Time(v) => Ok(MysqlValue::from(v.format("%H:%M:%S%.f").to_string())),
+        QueryValue::Json(v) => Ok(MysqlValue::from(v.to_string())),
+        QueryValue::Array(_) => Err(DriverError::new(MappedError::InvalidInputValue {
+            message: "Array parameters are not supported for MySQL".into(),
+        })),
     }
 }
 
@@ -87,8 +89,11 @@ pub fn mysql_row_value(row: &Row, col_idx: usize, col_type: ColumnType) -> Resul
     let val: MysqlValue = match row.get(col_idx) {
         Some(v) => v,
         None => {
-            eprintln!("[prisma-driver-mysql] WARNING: Column index {col_idx} out of bounds, returning NULL");
-            return ResultValue::Null;
+            panic!(
+                "[prisma-driver-mysql] BUG: Column index {col_idx} out of bounds \
+                 (row has {} columns). This indicates a programming error in the caller.",
+                row.len()
+            );
         }
     };
     if val == MysqlValue::NULL {
@@ -102,13 +107,25 @@ pub fn mysql_row_value(row: &Row, col_idx: usize, col_type: ColumnType) -> Resul
             _ => ResultValue::Null,
         },
         ColumnType::Int32 => match &val {
-            MysqlValue::Int(v) => ResultValue::Int32(*v as i32),
-            MysqlValue::UInt(v) => ResultValue::Int32(*v as i32),
+            MysqlValue::Int(v) => match i32::try_from(*v) {
+                Ok(n) => ResultValue::Int32(n),
+                Err(_) => ResultValue::Int64(*v),
+            },
+            MysqlValue::UInt(v) => match i32::try_from(*v) {
+                Ok(n) => ResultValue::Int32(n),
+                Err(_) => match i64::try_from(*v) {
+                    Ok(n) => ResultValue::Int64(n),
+                    Err(_) => ResultValue::Numeric(v.to_string()),
+                },
+            },
             _ => ResultValue::Null,
         },
         ColumnType::Int64 => match &val {
             MysqlValue::Int(v) => ResultValue::Int64(*v),
-            MysqlValue::UInt(v) => ResultValue::Int64(*v as i64),
+            MysqlValue::UInt(v) => match i64::try_from(*v) {
+                Ok(n) => ResultValue::Int64(n),
+                Err(_) => ResultValue::Numeric(v.to_string()),
+            },
             _ => ResultValue::Null,
         },
         ColumnType::Float => match &val {
@@ -386,27 +403,33 @@ mod tests {
 
     #[test]
     fn mysql_param_null() {
-        assert_eq!(query_value_to_mysql(&QueryValue::Null), MysqlValue::NULL);
+        assert_eq!(query_value_to_mysql(&QueryValue::Null).unwrap(), MysqlValue::NULL);
     }
 
     #[test]
     fn mysql_param_boolean() {
-        assert_eq!(query_value_to_mysql(&QueryValue::Boolean(true)), MysqlValue::from(true));
         assert_eq!(
-            query_value_to_mysql(&QueryValue::Boolean(false)),
+            query_value_to_mysql(&QueryValue::Boolean(true)).unwrap(),
+            MysqlValue::from(true)
+        );
+        assert_eq!(
+            query_value_to_mysql(&QueryValue::Boolean(false)).unwrap(),
             MysqlValue::from(false)
         );
     }
 
     #[test]
     fn mysql_param_int32() {
-        assert_eq!(query_value_to_mysql(&QueryValue::Int32(42)), MysqlValue::from(42i32));
+        assert_eq!(
+            query_value_to_mysql(&QueryValue::Int32(42)).unwrap(),
+            MysqlValue::from(42i32)
+        );
     }
 
     #[test]
     fn mysql_param_int64() {
         assert_eq!(
-            query_value_to_mysql(&QueryValue::Int64(9_999_999_999)),
+            query_value_to_mysql(&QueryValue::Int64(9_999_999_999)).unwrap(),
             MysqlValue::from(9_999_999_999i64)
         );
     }
@@ -414,7 +437,7 @@ mod tests {
     #[test]
     fn mysql_param_float() {
         assert_eq!(
-            query_value_to_mysql(&QueryValue::Float(3.14)),
+            query_value_to_mysql(&QueryValue::Float(3.14)).unwrap(),
             MysqlValue::from(3.14f32)
         );
     }
@@ -422,7 +445,7 @@ mod tests {
     #[test]
     fn mysql_param_double() {
         assert_eq!(
-            query_value_to_mysql(&QueryValue::Double(2.718)),
+            query_value_to_mysql(&QueryValue::Double(2.718)).unwrap(),
             MysqlValue::from(2.718f64)
         );
     }
@@ -431,7 +454,7 @@ mod tests {
     fn mysql_param_numeric() {
         let dec = rust_decimal::Decimal::new(12345, 2);
         assert_eq!(
-            query_value_to_mysql(&QueryValue::Numeric(dec)),
+            query_value_to_mysql(&QueryValue::Numeric(dec)).unwrap(),
             MysqlValue::from("123.45")
         );
     }
@@ -439,7 +462,7 @@ mod tests {
     #[test]
     fn mysql_param_text() {
         assert_eq!(
-            query_value_to_mysql(&QueryValue::Text("hello".into())),
+            query_value_to_mysql(&QueryValue::Text("hello".into())).unwrap(),
             MysqlValue::from("hello")
         );
     }
@@ -447,7 +470,7 @@ mod tests {
     #[test]
     fn mysql_param_bytes() {
         assert_eq!(
-            query_value_to_mysql(&QueryValue::Bytes(vec![0xDE, 0xAD])),
+            query_value_to_mysql(&QueryValue::Bytes(vec![0xDE, 0xAD])).unwrap(),
             MysqlValue::from(vec![0xDE, 0xAD].as_slice())
         );
     }
@@ -456,7 +479,7 @@ mod tests {
     fn mysql_param_uuid() {
         let u = uuid::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
         assert_eq!(
-            query_value_to_mysql(&QueryValue::Uuid(u)),
+            query_value_to_mysql(&QueryValue::Uuid(u)).unwrap(),
             MysqlValue::from("550e8400-e29b-41d4-a716-446655440000")
         );
     }
@@ -467,7 +490,7 @@ mod tests {
             .unwrap()
             .and_hms_opt(10, 30, 0)
             .unwrap();
-        let result = query_value_to_mysql(&QueryValue::DateTime(dt));
+        let result = query_value_to_mysql(&QueryValue::DateTime(dt)).unwrap();
         if let MysqlValue::Bytes(bytes) = result {
             let s = String::from_utf8(bytes).unwrap();
             assert!(s.starts_with("2024-01-15 10:30:00"));
@@ -479,7 +502,7 @@ mod tests {
     #[test]
     fn mysql_param_date() {
         let d = chrono::NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-        let result = query_value_to_mysql(&QueryValue::Date(d));
+        let result = query_value_to_mysql(&QueryValue::Date(d)).unwrap();
         if let MysqlValue::Bytes(bytes) = result {
             assert_eq!(String::from_utf8(bytes).unwrap(), "2024-06-15");
         } else {
@@ -490,7 +513,7 @@ mod tests {
     #[test]
     fn mysql_param_time() {
         let t = chrono::NaiveTime::from_hms_opt(14, 30, 45).unwrap();
-        let result = query_value_to_mysql(&QueryValue::Time(t));
+        let result = query_value_to_mysql(&QueryValue::Time(t)).unwrap();
         if let MysqlValue::Bytes(bytes) = result {
             let s = String::from_utf8(bytes).unwrap();
             assert!(s.starts_with("14:30:45"));
@@ -502,7 +525,7 @@ mod tests {
     #[test]
     fn mysql_param_json() {
         let j = serde_json::json!({"key": "value"});
-        let result = query_value_to_mysql(&QueryValue::Json(j));
+        let result = query_value_to_mysql(&QueryValue::Json(j)).unwrap();
         if let MysqlValue::Bytes(bytes) = result {
             let s = String::from_utf8(bytes).unwrap();
             assert!(s.contains("key"));
@@ -512,9 +535,9 @@ mod tests {
     }
 
     #[test]
-    fn mysql_param_array_becomes_null() {
+    fn mysql_param_array_returns_error() {
         let arr = QueryValue::Array(vec![QueryValue::Int32(1)]);
-        assert_eq!(query_value_to_mysql(&arr), MysqlValue::NULL);
+        assert!(query_value_to_mysql(&arr).is_err());
     }
 
     // --- mysql_value_to_string ---

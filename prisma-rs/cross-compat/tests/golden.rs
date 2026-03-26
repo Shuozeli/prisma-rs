@@ -33,7 +33,7 @@ fn schema_for(provider: &str) -> String {
 
 fn compile_sql(provider: &str, request: &str) -> Vec<String> {
     let schema = schema_for(provider);
-    let compiler = compiler_for_provider(provider, &schema);
+    let compiler = compiler_for_provider(provider, &schema).unwrap();
     let plan = compile_operation(&compiler, request).unwrap_or_else(|e| panic!("{provider}: {e}"));
     extract_sql_queries(&plan)
 }

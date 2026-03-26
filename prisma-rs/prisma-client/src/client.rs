@@ -93,6 +93,9 @@ impl<'a> PrismaClientBuilder<'a> {
             Provider::Postgres => SqlFamily::Postgres,
             Provider::Mysql => SqlFamily::Mysql,
             Provider::Sqlite => SqlFamily::Sqlite,
+            // DuckDB aims for PostgreSQL wire/SQL compatibility, so we use
+            // the Postgres SQL family for query compilation. If DuckDB-specific
+            // SQL generation is needed in the future, add a SqlFamily::DuckDb.
             Provider::DuckDb => SqlFamily::Postgres,
         };
 

@@ -14,12 +14,12 @@ use prisma_compiler::quaint::prelude::{ExternalConnectionInfo, SqlFamily};
 use serde_json::Value;
 
 /// Create a query compiler for the given provider and schema.
-pub fn compiler_for_provider(provider: &str, schema: &str) -> QueryCompiler {
+pub fn compiler_for_provider(provider: &str, schema: &str) -> Result<QueryCompiler, String> {
     let family = match provider {
         "postgresql" | "postgres" => SqlFamily::Postgres,
         "mysql" => SqlFamily::Mysql,
         "sqlite" => SqlFamily::Sqlite,
-        other => panic!("Unsupported provider: {other}"),
+        other => return Err(format!("Unsupported provider: {other}")),
     };
 
     let conn_info = ConnectionInfo::External(ExternalConnectionInfo::new(
@@ -28,7 +28,7 @@ pub fn compiler_for_provider(provider: &str, schema: &str) -> QueryCompiler {
         None,
         family == SqlFamily::Postgres || family == SqlFamily::Mysql,
     ));
-    QueryCompiler::new(schema, conn_info)
+    Ok(QueryCompiler::new(schema, conn_info))
 }
 
 /// Compile a Prisma operation and return the query plan as JSON.
@@ -83,66 +83,37 @@ fn collect_sql(value: &Value, out: &mut Vec<String>) {
 mod tests {
     use super::*;
 
-    const PG_SCHEMA: &str = r#"
-        datasource db {
-            provider = "postgresql"
-        }
+    fn make_schema(provider: &str) -> String {
+        format!(
+            r#"
+        datasource db {{
+            provider = "{provider}"
+        }}
 
-        model User {
+        model User {{
             id    Int    @id @default(autoincrement())
             email String @unique
             name  String?
             posts Post[]
-        }
+        }}
 
-        model Post {
+        model Post {{
             id       Int    @id @default(autoincrement())
             title    String
             authorId Int
             author   User   @relation(fields: [authorId], references: [id])
-        }
-    "#;
+        }}
+    "#
+        )
+    }
 
-    const MYSQL_SCHEMA: &str = r#"
-        datasource db {
-            provider = "mysql"
-        }
-
-        model User {
-            id    Int    @id @default(autoincrement())
-            email String @unique
-            name  String?
-            posts Post[]
-        }
-
-        model Post {
-            id       Int    @id @default(autoincrement())
-            title    String
-            authorId Int
-            author   User   @relation(fields: [authorId], references: [id])
-        }
-    "#;
-
-    const SQLITE_SCHEMA: &str = r#"
-        datasource db {
-            provider = "sqlite"
-        }
-
-        model User {
-            id    Int    @id @default(autoincrement())
-            email String @unique
-            name  String?
-            posts Post[]
-        }
-
-        model Post {
-            id       Int    @id @default(autoincrement())
-            title    String
-            authorId Int
-            author   User   @relation(fields: [authorId], references: [id])
-        }
-    "#;
-
+    // Pre-built schemas for convenience in loop iterations.
+    fn pg_schema() -> String {
+        make_schema("postgresql")
+    }
+    fn mysql_schema() -> String {
+        make_schema("mysql")
+    }
     #[test]
     fn compile_find_many_all_providers() {
         let request = r#"{
@@ -153,12 +124,9 @@ mod tests {
             }
         }"#;
 
-        for (provider, schema) in [
-            ("postgresql", PG_SCHEMA),
-            ("mysql", MYSQL_SCHEMA),
-            ("sqlite", SQLITE_SCHEMA),
-        ] {
-            let compiler = compiler_for_provider(provider, schema);
+        for provider in ["postgresql", "mysql", "sqlite"] {
+            let schema = make_schema(provider);
+            let compiler = compiler_for_provider(provider, &schema).unwrap();
             let plan = compile_operation(&compiler, request).unwrap_or_else(|e| panic!("{provider}: {e}"));
 
             let sqls = extract_sql_queries(&plan);
@@ -186,12 +154,9 @@ mod tests {
             }
         }"#;
 
-        for (provider, schema) in [
-            ("postgresql", PG_SCHEMA),
-            ("mysql", MYSQL_SCHEMA),
-            ("sqlite", SQLITE_SCHEMA),
-        ] {
-            let compiler = compiler_for_provider(provider, schema);
+        for provider in ["postgresql", "mysql", "sqlite"] {
+            let schema = make_schema(provider);
+            let compiler = compiler_for_provider(provider, &schema).unwrap();
             let plan = compile_operation(&compiler, request).unwrap_or_else(|e| panic!("{provider}: {e}"));
 
             let sqls = extract_sql_queries(&plan);
@@ -213,12 +178,9 @@ mod tests {
             }
         }"#;
 
-        for (provider, schema) in [
-            ("postgresql", PG_SCHEMA),
-            ("mysql", MYSQL_SCHEMA),
-            ("sqlite", SQLITE_SCHEMA),
-        ] {
-            let compiler = compiler_for_provider(provider, schema);
+        for provider in ["postgresql", "mysql", "sqlite"] {
+            let schema = make_schema(provider);
+            let compiler = compiler_for_provider(provider, &schema).unwrap();
             let plan = compile_operation(&compiler, request).unwrap_or_else(|e| panic!("{provider}: {e}"));
 
             let sqls = extract_sql_queries(&plan);
@@ -237,8 +199,8 @@ mod tests {
             }
         }"#;
 
-        let pg = compiler_for_provider("postgresql", PG_SCHEMA);
-        let mysql = compiler_for_provider("mysql", MYSQL_SCHEMA);
+        let pg = compiler_for_provider("postgresql", &pg_schema()).unwrap();
+        let mysql = compiler_for_provider("mysql", &mysql_schema()).unwrap();
 
         let pg_plan = compile_operation(&pg, request).unwrap();
         let mysql_plan = compile_operation(&mysql, request).unwrap();
