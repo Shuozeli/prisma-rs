@@ -15,3 +15,14 @@ pub use static_sql::StaticSql;
 pub use traits::*;
 pub use types::*;
 pub use user_facing_error::*;
+
+/// Log a warning when a transaction is dropped without an explicit commit or rollback.
+///
+/// All driver `Transaction` implementations should call this in their `Drop` impl
+/// to provide consistent, structured logging.
+pub fn warn_uncommitted_transaction(adapter_name: &str) {
+    tracing::warn!(
+        adapter = adapter_name,
+        "Transaction dropped without commit/rollback, connection returned with implicit rollback"
+    );
+}

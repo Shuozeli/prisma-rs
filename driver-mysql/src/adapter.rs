@@ -193,10 +193,7 @@ impl Transaction for MySqlTransaction {
 impl Drop for MySqlTransaction {
     fn drop(&mut self) {
         if !self.closed {
-            eprintln!(
-                "[prisma-driver-mysql] WARNING: Transaction dropped without commit/rollback, \
-                 connection returned to pool with implicit rollback"
-            );
+            prisma_driver_core::warn_uncommitted_transaction("prisma-driver-mysql");
         }
     }
 }
@@ -273,7 +270,7 @@ impl SqlDriverAdapterFactory for MySqlDriverAdapterFactory {
 
 async fn execute_query(conn: &mut Conn, query: SqlQuery) -> Result<SqlResultSet, DriverError> {
     query.validate()?;
-    let params: Vec<mysql_async::Value> = query.args.iter().map(query_value_to_mysql).collect();
+    let params: Vec<mysql_async::Value> = query.args.iter().map(query_value_to_mysql).collect::<Result<_, _>>()?;
 
     let mut result = conn
         .exec_iter(&query.sql, params)
@@ -312,7 +309,7 @@ async fn execute_query(conn: &mut Conn, query: SqlQuery) -> Result<SqlResultSet,
 
 async fn execute_mutation(conn: &mut Conn, query: SqlQuery) -> Result<u64, DriverError> {
     query.validate()?;
-    let params: Vec<mysql_async::Value> = query.args.iter().map(query_value_to_mysql).collect();
+    let params: Vec<mysql_async::Value> = query.args.iter().map(query_value_to_mysql).collect::<Result<_, _>>()?;
 
     conn.exec_drop(&query.sql, params)
         .await

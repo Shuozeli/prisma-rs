@@ -271,10 +271,7 @@ impl Transaction for DuckDbTransaction {
 impl Drop for DuckDbTransaction {
     fn drop(&mut self) {
         if !self.closed {
-            eprintln!(
-                "[prisma-driver-duckdb] WARNING: Transaction dropped without commit/rollback, \
-                 auto-rolling back"
-            );
+            prisma_driver_core::warn_uncommitted_transaction("prisma-driver-duckdb");
             let conn = self.conn.clone();
             tokio::task::spawn_blocking(move || {
                 let _ = conn.lock().map(|c| c.execute_batch("ROLLBACK"));

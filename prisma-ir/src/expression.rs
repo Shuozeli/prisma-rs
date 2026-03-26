@@ -173,6 +173,9 @@ pub struct InMemoryOps {
     pub reverse: bool,
     #[serde(default)]
     pub nested: BTreeMap<String, InMemoryOps>,
+    // TODO: linking_fields is deserialized but not yet used in process_records_inner.
+    // It will be needed when in-memory join support is implemented for nested queries
+    // that require linking parent/child records by field values.
     #[serde(default)]
     pub linking_fields: Option<Vec<String>>,
 }
