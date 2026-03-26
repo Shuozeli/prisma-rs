@@ -22,7 +22,7 @@ impl IntermediateValue {
         }
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn with_last_insert_id(value: IValue, id: String) -> Self {
         Self {
             value,

@@ -193,8 +193,9 @@ impl Transaction for MySqlTransaction {
 impl Drop for MySqlTransaction {
     fn drop(&mut self) {
         if !self.closed {
-            eprintln!(
-                "[prisma-driver-mysql] WARNING: Transaction dropped without commit/rollback, \
+            tracing::warn!(
+                adapter = "prisma-driver-mysql",
+                "Transaction dropped without commit/rollback, \
                  connection returned to pool with implicit rollback"
             );
         }

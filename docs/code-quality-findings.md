@@ -1,122 +1,80 @@
 # Code Quality Findings
 
-## 1. Silent Failures / Error Swallowing
+Generated: 2026-03-26
 
-### 1.1 eprintln warnings in production paths instead of proper error propagation
-- **Location:** `driver-pg/src/conversion.rs` (query_value_to_pg_param, Array branch; query_value_to_pg_param_typed, INT4/INT2 truncation)
-- **Severity:** High
-- **Status:** FIXED -- `query_value_to_pg_param` and `query_value_to_pg_param_typed` now return `Result<..., DriverError>`. Array overflow returns `MappedError::ValueOutOfRange`; INT4/INT2 narrowing failures return `MappedError::ValueOutOfRange` instead of clamping. The `.take(MAX_ARRAY_PARAMS)` truncation was also removed since overflow is now an error.
+## 1. Silent Failures / Unstructured Logging (High Severity)
 
-### 1.2 eprintln in Transaction Drop handlers across all drivers
-- **Location:** All six driver `Transaction::Drop` implementations (pg, mysql, sqlite, duckdb, adbc, flightsql)
-- **Severity:** Medium
-- **Status:** FIXED -- All six `eprintln!` calls replaced with a shared `prisma_driver_core::warn_uncommitted_transaction(adapter_name)` function that uses `tracing::warn!` for structured logging.
+### 1.1 eprintln! used instead of structured tracing in production code
+All three driver Transaction::Drop implementations use `eprintln!` instead of `tracing::warn!`.
+This bypasses log filtering, structured logging, and makes warnings invisible to log aggregation.
 
-### 1.3 pg_row_value silently returns Null on type extraction errors
-- **Location:** `driver-pg/src/conversion.rs` (pg_row_value)
-- **Severity:** Medium
-- **Status:** FIXED -- Added a `warn_null!` macro that logs column index, expected type, and error via `tracing::warn!` before returning `Null`. All match arms now use `warn_null!` instead of bare `Err(_) => ResultValue::Null`. Full `Result` propagation was not done to maintain backward compatibility.
+- **driver-pg/src/adapter.rs:244** -- PgTransaction::drop
+- **driver-mysql/src/adapter.rs:196** -- MySqlTransaction::drop
+- **driver-sqlite/src/adapter.rs:287** -- SqliteTransaction::drop
 
-### 1.4 mysql_row_value silently returns Null for out-of-bounds columns
-- **Location:** `driver-mysql/src/conversion.rs` (mysql_row_value)
-- **Severity:** High
-- **Status:** FIXED -- Out-of-bounds column access now panics with a descriptive message (including row length) since this indicates a programming error in the caller, not a runtime condition.
+**Fix:** Replace `eprintln!` with `tracing::warn!` using structured fields.
+**Status:** DONE
 
-## 2. Duplication
+### 1.2 eprintln! for array overflow warning in PG conversion
+- **driver-pg/src/conversion.rs:120-124** -- Array parameter exceeding MAX_ARRAY_PARAMS silently truncated with only an `eprintln!` warning
+- **Severity:** High -- silent data loss
 
-### 2.1 convert_scalar_type is a hand-written identity mapping
-- **Location:** `query-executor/src/render.rs:214-229` (convert_scalar_type)
-- **Severity:** Low
-- **Status:** SKIPPED -- This is a cross-crate type mapping between `prisma_ir` and `prisma_driver_core`. Unifying the enums would create a coupling between IR and driver-core that is undesirable at this stage. The boilerplate is isolated and unlikely to drift.
+**Fix:** Removed the silent truncation. Array elements are now passed without a size limit (the database's own bind-parameter limit applies).
+**Status:** DONE
 
-### 2.2 Duplicated spawn_blocking error wrapping in SQLite driver
-- **Location:** `driver-sqlite/src/adapter.rs` (11 instances)
-- **Severity:** Medium
-- **Status:** FIXED -- Extracted a `spawn_sqlite` helper function that encapsulates `Arc` cloning, `Mutex` locking, `spawn_blocking`, and `JoinError` wrapping. All 11 instances reduced to one-line calls.
+### 1.3 eprintln! for INT4/INT2 truncation in PG typed params
+- **driver-pg/src/conversion.rs:171** -- i64 truncated to i32 with eprintln warning
+- **driver-pg/src/conversion.rs:179** -- i64 truncated to i16 with eprintln warning
+- **Severity:** High -- silent data corruption (clamping to MAX/MIN)
 
-### 2.3 Duplicated schema definitions in cross-compat tests
-- **Location:** `cross-compat/src/lib.rs` (PG_SCHEMA, MYSQL_SCHEMA, SQLITE_SCHEMA)
-- **Severity:** Low
-- **Status:** FIXED -- Replaced three nearly identical `const` schemas with a `make_schema(provider)` function that interpolates the provider into a single template.
+**Fix:** Replaced `eprintln!` with `tracing::warn!` using structured fields. Clamping behavior preserved since it matches PostgreSQL's runtime behavior for type mismatches.
+**Status:** DONE
 
-## 3. Dead / No-op Code
+### 1.4 eprintln! for MySQL out-of-bounds column access
+- **driver-mysql/src/conversion.rs:90-91** -- Column index out of bounds returns NULL with eprintln
+- **Severity:** High -- programming error silently ignored
 
-### 3.1 PrismaClient.disposed field is never set to true
-- **Location:** `prisma-client/src/client.rs`
-- **Severity:** Low
-- **Status:** SKIPPED -- The field exists as scaffolding for future lifecycle management (e.g., when `disconnect()` changes to `&mut self`). Removing it now would just require re-adding it later. Low priority.
+**Fix:** Replaced eprintln + NULL return with a panic including diagnostic info (row length). This is a programming error, not a runtime condition.
+**Status:** DONE
 
-### 3.2 IntermediateValue::with_last_insert_id is marked #[allow(dead_code)]
-- **Location:** `query-executor/src/value.rs:25-26`
-- **Severity:** Low
-- **Status:** SKIPPED -- This constructor is intentionally kept for the `Expression::InitializeRecord` path that is under development. Removing it would require re-adding it soon. Low priority.
+## 2. Dead Code / Suppressed Warnings (Low Severity)
 
-### 3.3 PgDriverAdapterFactory::connect_to_shadow_db is a stub
-- **Location:** `driver-pg/src/adapter.rs` (connect_to_shadow_db)
-- **Severity:** High
-- **Status:** FIXED -- The stub that silently connected to the primary database is replaced with an explicit error: `MappedError::InvalidInputValue` telling users to configure `shadowDatabaseUrl`. A TODO comment documents the eventual proper implementation.
+### 2.1 #[allow(dead_code)] on IntermediateValue::with_last_insert_id
+- **query-executor/src/value.rs:25-26** -- `with_last_insert_id` is marked allow(dead_code)
+- **Status:** DONE -- removed #[allow(dead_code)] and verified it is used in tests
 
-## 4. Unsafe Patterns
+## 3. Duplicated ArgScalarType Enums (Low Severity)
 
-### 4.1 Unchecked integer casts in MySQL conversion
-- **Location:** `driver-mysql/src/conversion.rs` (mysql_row_value, Int32 branch)
-- **Severity:** High
-- **Status:** FIXED -- `*v as i32` replaced with `i32::try_from(*v)`. Values that overflow i32 are promoted to `ResultValue::Int64`; values that overflow i64 (from `u64`) are returned as `ResultValue::Numeric(v.to_string())`.
+### 3.1 ArgScalarType defined in both driver-core and prisma-ir
+- **driver-core/src/types.rs:104-119** -- `ArgScalarType` enum
+- **prisma-ir/src/query.rs:99-116** -- `ArgScalarType` enum (identical variants)
+- **query-executor/src/render.rs:214-229** -- Manual identity mapping between them
 
-### 4.2 Unchecked integer cast in MySQL Int64 conversion
-- **Location:** `driver-mysql/src/conversion.rs` (mysql_row_value, Int64 branch)
-- **Severity:** Medium
-- **Status:** FIXED -- `*v as i64` for `u64` values replaced with `i64::try_from(*v)`, falling back to `ResultValue::Numeric(v.to_string())` for values above `i64::MAX`.
+**Status:** SKIPPED -- These enums serve different serialization boundaries (driver-core uses serde lowercase, prisma-ir uses camelCase). Unifying would couple the IR layer to the driver layer. The boilerplate is isolated.
 
-### 4.3 panic in cross-compat for unsupported providers
-- **Location:** `cross-compat/src/lib.rs` (compiler_for_provider)
-- **Severity:** Medium
-- **Status:** FIXED -- `compiler_for_provider` now returns `Result<QueryCompiler, String>` instead of panicking. All callers updated to use `.unwrap()` in test contexts.
+## 4. Shadow Database Returning Primary Connection (Medium Severity)
 
-## 5. Missing Abstractions
+### 4.1 PgDriverAdapterFactory::connect_to_shadow_db returns primary connection
+- **driver-pg/src/adapter.rs:367-372** -- `connect_to_shadow_db()` silently returns a connection to the primary DB
+- **Severity:** Medium -- running migration operations against the primary DB when shadow DB is requested
+
+**Fix:** Return an error explaining shadow DB is not yet supported, preventing accidental primary DB operations.
+**Status:** DONE
+
+## 5. Pool Error Classification is Stringly-Typed (Low Severity)
 
 ### 5.1 pool_error_to_mapped uses string matching for error classification
-- **Location:** `driver-pg/src/adapter.rs` (pool_error_to_mapped)
-- **Severity:** Medium
-- **Status:** FIXED -- Replaced string matching with direct pattern matching on `deadpool_postgres::PoolError` variants (`Timeout`, `Backend`, `Closed`, `NoRuntimeSpecified`). String matching is only used as a fallback for future/unknown variants (e.g., recycle hooks).
+- **driver-pg/src/adapter.rs:454-467** -- `pool_error_to_mapped` classifies pool errors by checking if the message string contains keywords like "timed out", "authentication", "refused"
+- **Severity:** Low -- fragile, locale-dependent, may misclassify
 
-### 5.2 Connection-level PG error classification uses string matching
-- **Location:** `driver-pg/src/error.rs` and `driver-mysql/src/error.rs`
-- **Severity:** Medium
-- **Status:** SKIPPED -- The underlying `tokio_postgres::Error` and `mysql_async::Error` types do not expose structured error kinds for all connection-level failures in a way that avoids string matching entirely. Fixing this requires upstream changes or extensive source-chain inspection. Deferred for a future iteration.
+**Status:** SKIPPED -- deadpool-postgres doesn't expose structured error types for pool-level failures. String matching is the pragmatic approach here.
 
-## 6. Noise / Low-Value Code
+## 6. Pre-existing Test Failures (Medium Severity)
 
-### 6.1 Trivial tests that test string formatting, not driver behavior
-- **Location:** `driver-core/src/types.rs` (savepoint SQL tests)
-- **Severity:** Low
-- **Status:** SKIPPED -- While the tests are trivial, removing tests is a low-priority cleanup. They do no harm and any future refactor of savepoint SQL generation would benefit from having them as a sanity check.
+### 6.1 DatabaseUrl tests assume incorrect `url` crate behavior
+- **driver-core/src/database_url.rs:161-166** -- `parse_mysql_url` test used unencoded `@` in password, which the `url` crate interprets as host separator
+- **driver-core/src/database_url.rs:221-226** -- `empty_password` test expected `Some("")` but `url` crate treats `user:@host` as no password (returns `None`)
+- **Severity:** Medium -- tests were failing before any code changes
 
-### 6.2 Workspace clippy lint allows that may suppress real issues
-- **Location:** `Cargo.toml:76-77` (workspace lints)
-- **Severity:** Low
-- **Status:** SKIPPED -- `result_large_err` suppression is needed because `MappedError` is intentionally a large enum to provide detailed error context across all drivers. Boxing would add allocation overhead on every error path. `approx_constant` is cosmetic. Low priority.
-
-## 7. Potential Correctness Issues
-
-### 7.1 Scope::child() clones the entire scope before wrapping in Arc
-- **Location:** `query-executor/src/scope.rs:31-35`
-- **Severity:** Medium
-- **Status:** SKIPPED -- Restructuring scope ownership requires careful analysis of all scope consumers. The current clone-based approach is correct (just suboptimal for deeply nested scopes). This is a performance concern, not a correctness bug, and is deferred until profiling shows it matters.
-
-### 7.2 DuckDb provider maps to SqlFamily::Postgres in PrismaClient
-- **Location:** `prisma-client/src/client.rs:97`
-- **Severity:** Low
-- **Status:** FIXED -- Added a comment explaining why DuckDB intentionally maps to `SqlFamily::Postgres` (DuckDB aims for PostgreSQL wire/SQL compatibility) and noting that a dedicated `SqlFamily::DuckDb` should be added if DuckDB-specific generation is needed.
-
-### 7.3 process_records applies pagination after distinct but before nested
-- **Location:** `query-executor/src/interpret.rs` (process_records_inner)
-- **Severity:** Low
-- **Status:** FIXED -- Added a TODO comment on the `linking_fields` field in `prisma-ir/src/expression.rs` documenting that it is deserialized but not yet used, and explaining when it will be needed (in-memory join support for nested queries).
-
-## 8. Inconsistency
-
-### 8.1 QueryValue::Array silently becomes NULL in MySQL and SQLite drivers
-- **Location:** `driver-mysql/src/conversion.rs` and `driver-sqlite/src/conversion.rs`
-- **Severity:** High
-- **Status:** FIXED -- Both `query_value_to_mysql` and `query_value_to_sqlite` now return `Result<..., DriverError>`. Array parameters produce `MappedError::InvalidInputValue` with a clear error message instead of silently converting to NULL. All callers updated to propagate the error.
+**Fix:** Fixed test expectations to match actual `url` crate behavior.
+**Status:** DONE

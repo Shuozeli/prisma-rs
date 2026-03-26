@@ -241,8 +241,9 @@ impl Transaction for PgTransaction {
 impl Drop for PgTransaction {
     fn drop(&mut self) {
         if !self.closed {
-            eprintln!(
-                "[prisma-driver-pg] WARNING: Transaction dropped without commit/rollback, \
+            tracing::warn!(
+                adapter = "prisma-driver-pg",
+                "Transaction dropped without commit/rollback, \
                  connection returned to pool with implicit rollback"
             );
             // When the deadpool Object is dropped, the connection returns to the pool.
@@ -365,10 +366,14 @@ impl SqlDriverAdapterFactory for PgDriverAdapterFactory {
 #[async_trait]
 impl SqlMigrationAwareDriverAdapterFactory for PgDriverAdapterFactory {
     async fn connect_to_shadow_db(&self) -> Result<Box<dyn SqlDriverAdapter>, DriverError> {
-        // For shadow DB, create a separate connection to the same server but
-        // with a temporary database. For now, just connect to the same DB.
-        // A full implementation would CREATE a temp DB and return an adapter to it.
-        self.connect().await
+        // TODO: Implement proper shadow database support (create a temporary
+        // database, connect to it, drop on dispose). For now, return an error
+        // rather than silently running migrations against the primary database.
+        Err(DriverError::new(MappedError::InvalidInputValue {
+            message: "Shadow database not yet supported for PostgreSQL. \
+                      Configure shadowDatabaseUrl in your schema."
+                .into(),
+        }))
     }
 }
 

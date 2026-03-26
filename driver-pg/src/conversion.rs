@@ -115,17 +115,8 @@ pub fn query_value_to_pg_param(value: &QueryValue) -> Box<dyn tokio_postgres::ty
             // Convert array elements to their string representations and bind
             // as a PostgreSQL text array. This works for most column types since
             // PG can coerce text[] elements to the target type.
-            const MAX_ARRAY_PARAMS: usize = 32_768;
-            if items.len() > MAX_ARRAY_PARAMS {
-                eprintln!(
-                    "[prisma-driver-pg] WARNING: Array parameter has {} elements, exceeding limit of {}. Truncating.",
-                    items.len(),
-                    MAX_ARRAY_PARAMS
-                );
-            }
             let strings: Vec<Option<String>> = items
                 .iter()
-                .take(MAX_ARRAY_PARAMS)
                 .map(|item| match item {
                     QueryValue::Null => None,
                     QueryValue::Text(s) => Some(s.clone()),
@@ -168,7 +159,7 @@ pub fn query_value_to_pg_param_typed(
         // INT4 column but we have Int64 -- downcast to i32
         (QueryValue::Int64(v), Some(t)) if *t == T::INT4 => {
             let narrowed = i32::try_from(*v).unwrap_or_else(|_| {
-                eprintln!("[prisma-driver-pg] WARNING: i64 value {v} truncated to i32 for INT4 column");
+                tracing::warn!(value = *v, target_type = "INT4", "i64 value truncated to i32");
                 if *v > 0 { i32::MAX } else { i32::MIN }
             });
             Box::new(narrowed)
@@ -176,7 +167,7 @@ pub fn query_value_to_pg_param_typed(
         // INT2 column but we have Int64 -- downcast to i16
         (QueryValue::Int64(v), Some(t)) if *t == T::INT2 => {
             let narrowed = i16::try_from(*v).unwrap_or_else(|_| {
-                eprintln!("[prisma-driver-pg] WARNING: i64 value {v} truncated to i16 for INT2 column");
+                tracing::warn!(value = *v, target_type = "INT2", "i64 value truncated to i16");
                 if *v > 0 { i16::MAX } else { i16::MIN }
             });
             Box::new(narrowed)

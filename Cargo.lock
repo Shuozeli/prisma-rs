@@ -4048,6 +4048,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -4070,6 +4071,7 @@ dependencies = [
  "tokio",
  "tokio-postgres 0.7.16",
  "tokio-postgres-rustls",
+ "tracing",
  "uuid",
 ]
 
@@ -4086,6 +4088,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
  "uuid",
 ]
 

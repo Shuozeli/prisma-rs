@@ -284,9 +284,9 @@ impl Transaction for SqliteTransaction {
 impl Drop for SqliteTransaction {
     fn drop(&mut self) {
         if !self.closed {
-            eprintln!(
-                "[prisma-driver-sqlite] WARNING: Transaction dropped without commit/rollback, \
-                 auto-rolling back"
+            tracing::warn!(
+                adapter = "prisma-driver-sqlite",
+                "Transaction dropped without commit/rollback, auto-rolling back"
             );
             let conn = self.conn.clone();
             tokio::task::spawn_blocking(move || {

@@ -87,8 +87,11 @@ pub fn mysql_row_value(row: &Row, col_idx: usize, col_type: ColumnType) -> Resul
     let val: MysqlValue = match row.get(col_idx) {
         Some(v) => v,
         None => {
-            eprintln!("[prisma-driver-mysql] WARNING: Column index {col_idx} out of bounds, returning NULL");
-            return ResultValue::Null;
+            panic!(
+                "[prisma-driver-mysql] BUG: Column index {col_idx} out of bounds \
+                 (row has {} columns). This is a programming error.",
+                row.len()
+            );
         }
     };
     if val == MysqlValue::NULL {
