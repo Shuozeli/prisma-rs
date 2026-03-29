@@ -240,10 +240,7 @@ impl Transaction for FlightSqlTransaction {
 impl Drop for FlightSqlTransaction {
     fn drop(&mut self) {
         if !self.closed {
-            eprintln!(
-                "[prisma-driver-flightsql] WARNING: Transaction dropped without commit/rollback, \
-                 attempting async rollback"
-            );
+            prisma_driver_core::warn_uncommitted_transaction("prisma-driver-flightsql");
             let client = self.client.clone();
             tokio::spawn(async move {
                 let mut c = client.lock().await;

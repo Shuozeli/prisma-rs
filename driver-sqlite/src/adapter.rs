@@ -13,6 +13,27 @@ use prisma_driver_core::{
 use crate::conversion::{decl_type_to_column_type, infer_column_type, query_value_to_sqlite, sqlite_value_to_result};
 use crate::error::convert_sqlite_error;
 
+/// Run a synchronous closure on a shared SQLite connection inside `spawn_blocking`.
+///
+/// Acquires the `Mutex`, runs `f` with the `Connection` reference, and maps
+/// `JoinError` into a `DriverError` so callers do not have to repeat the
+/// `spawn_blocking` + error-wrapping boilerplate.
+async fn spawn_sqlite<F, T>(conn: &Arc<Mutex<Connection>>, f: F) -> Result<T, DriverError>
+where
+    F: FnOnce(&Connection) -> Result<T, DriverError> + Send + 'static,
+    T: Send + 'static,
+{
+    let conn = conn.clone();
+    tokio::task::spawn_blocking(move || f(&conn.blocking_lock()))
+        .await
+        .map_err(|e| {
+            DriverError::new(MappedError::Sqlite {
+                extended_code: 0,
+                message: e.to_string(),
+            })
+        })?
+}
+
 /// SQLite driver adapter options.
 #[derive(Debug, Clone, Default)]
 pub struct SqliteOptions {
@@ -45,27 +66,11 @@ impl SqlQueryable for SqliteDriverAdapter {
     }
 
     async fn query_raw(&mut self, query: SqlQuery) -> Result<SqlResultSet, DriverError> {
-        let conn = self.conn.clone();
-        tokio::task::spawn_blocking(move || execute_query_sync(&conn.blocking_lock(), query))
-            .await
-            .map_err(|e| {
-                DriverError::new(MappedError::Sqlite {
-                    extended_code: 0,
-                    message: e.to_string(),
-                })
-            })?
+        spawn_sqlite(&self.conn, move |conn| execute_query_sync(conn, query)).await
     }
 
     async fn execute_raw(&mut self, query: SqlQuery) -> Result<u64, DriverError> {
-        let conn = self.conn.clone();
-        tokio::task::spawn_blocking(move || execute_mutation_sync(&conn.blocking_lock(), query))
-            .await
-            .map_err(|e| {
-                DriverError::new(MappedError::Sqlite {
-                    extended_code: 0,
-                    message: e.to_string(),
-                })
-            })?
+        spawn_sqlite(&self.conn, move |conn| execute_mutation_sync(conn, query)).await
     }
 
     async fn start_transaction(
@@ -80,19 +85,10 @@ impl SqlQueryable for SqliteDriverAdapter {
             }
         }
 
-        let conn = self.conn.clone();
-        tokio::task::spawn_blocking(move || {
-            conn.blocking_lock()
-                .execute_batch("BEGIN")
-                .map_err(|e| convert_sqlite_error(&e))
+        spawn_sqlite(&self.conn, |conn| {
+            conn.execute_batch("BEGIN").map_err(|e| convert_sqlite_error(&e))
         })
-        .await
-        .map_err(|e| {
-            DriverError::new(MappedError::Sqlite {
-                extended_code: 0,
-                message: e.to_string(),
-            })
-        })??;
+        .await?;
 
         Ok(Box::new(SqliteTransaction {
             conn: self.conn.clone(),
@@ -105,20 +101,11 @@ impl SqlQueryable for SqliteDriverAdapter {
 #[async_trait]
 impl SqlDriverAdapter for SqliteDriverAdapter {
     async fn execute_script(&mut self, script: &str) -> Result<(), DriverError> {
-        let conn = self.conn.clone();
         let script = script.to_string();
-        tokio::task::spawn_blocking(move || {
-            conn.blocking_lock()
-                .execute_batch(&script)
-                .map_err(|e| convert_sqlite_error(&e))
+        spawn_sqlite(&self.conn, move |conn| {
+            conn.execute_batch(&script).map_err(|e| convert_sqlite_error(&e))
         })
         .await
-        .map_err(|e| {
-            DriverError::new(MappedError::Sqlite {
-                extended_code: 0,
-                message: e.to_string(),
-            })
-        })?
     }
 
     fn connection_info(&self) -> ConnectionInfo {
@@ -156,27 +143,11 @@ impl SqlQueryable for SqliteTransaction {
     }
 
     async fn query_raw(&mut self, query: SqlQuery) -> Result<SqlResultSet, DriverError> {
-        let conn = self.conn.clone();
-        tokio::task::spawn_blocking(move || execute_query_sync(&conn.blocking_lock(), query))
-            .await
-            .map_err(|e| {
-                DriverError::new(MappedError::Sqlite {
-                    extended_code: 0,
-                    message: e.to_string(),
-                })
-            })?
+        spawn_sqlite(&self.conn, move |conn| execute_query_sync(conn, query)).await
     }
 
     async fn execute_raw(&mut self, query: SqlQuery) -> Result<u64, DriverError> {
-        let conn = self.conn.clone();
-        tokio::task::spawn_blocking(move || execute_mutation_sync(&conn.blocking_lock(), query))
-            .await
-            .map_err(|e| {
-                DriverError::new(MappedError::Sqlite {
-                    extended_code: 0,
-                    message: e.to_string(),
-                })
-            })?
+        spawn_sqlite(&self.conn, move |conn| execute_mutation_sync(conn, query)).await
     }
 }
 
@@ -189,19 +160,10 @@ impl Transaction for SqliteTransaction {
     async fn commit(&mut self) -> Result<(), DriverError> {
         if !self.closed {
             self.closed = true;
-            let conn = self.conn.clone();
-            tokio::task::spawn_blocking(move || {
-                conn.blocking_lock()
-                    .execute_batch("COMMIT")
-                    .map_err(|e| convert_sqlite_error(&e))
+            spawn_sqlite(&self.conn, |conn| {
+                conn.execute_batch("COMMIT").map_err(|e| convert_sqlite_error(&e))
             })
-            .await
-            .map_err(|e| {
-                DriverError::new(MappedError::Sqlite {
-                    extended_code: 0,
-                    message: e.to_string(),
-                })
-            })??;
+            .await?;
         }
         Ok(())
     }
@@ -209,74 +171,38 @@ impl Transaction for SqliteTransaction {
     async fn rollback(&mut self) -> Result<(), DriverError> {
         if !self.closed {
             self.closed = true;
-            let conn = self.conn.clone();
-            tokio::task::spawn_blocking(move || {
-                conn.blocking_lock()
-                    .execute_batch("ROLLBACK")
-                    .map_err(|e| convert_sqlite_error(&e))
+            spawn_sqlite(&self.conn, |conn| {
+                conn.execute_batch("ROLLBACK").map_err(|e| convert_sqlite_error(&e))
             })
-            .await
-            .map_err(|e| {
-                DriverError::new(MappedError::Sqlite {
-                    extended_code: 0,
-                    message: e.to_string(),
-                })
-            })??;
+            .await?;
         }
         Ok(())
     }
 
     async fn create_savepoint(&mut self, name: &'static str) -> Result<(), DriverError> {
         let sql = static_sql!("SAVEPOINT ", name);
-        let conn = self.conn.clone();
-        tokio::task::spawn_blocking(move || {
-            conn.blocking_lock()
-                .execute_batch(sql.as_str())
-                .map_err(|e| convert_sqlite_error(&e))
+        spawn_sqlite(&self.conn, move |conn| {
+            conn.execute_batch(sql.as_str()).map_err(|e| convert_sqlite_error(&e))
         })
-        .await
-        .map_err(|e| {
-            DriverError::new(MappedError::Sqlite {
-                extended_code: 0,
-                message: e.to_string(),
-            })
-        })??;
+        .await?;
         Ok(())
     }
 
     async fn rollback_to_savepoint(&mut self, name: &'static str) -> Result<(), DriverError> {
         let sql = static_sql!("ROLLBACK TO ", name);
-        let conn = self.conn.clone();
-        tokio::task::spawn_blocking(move || {
-            conn.blocking_lock()
-                .execute_batch(sql.as_str())
-                .map_err(|e| convert_sqlite_error(&e))
+        spawn_sqlite(&self.conn, move |conn| {
+            conn.execute_batch(sql.as_str()).map_err(|e| convert_sqlite_error(&e))
         })
-        .await
-        .map_err(|e| {
-            DriverError::new(MappedError::Sqlite {
-                extended_code: 0,
-                message: e.to_string(),
-            })
-        })??;
+        .await?;
         Ok(())
     }
 
     async fn release_savepoint(&mut self, name: &'static str) -> Result<(), DriverError> {
         let sql = static_sql!("RELEASE SAVEPOINT ", name);
-        let conn = self.conn.clone();
-        tokio::task::spawn_blocking(move || {
-            conn.blocking_lock()
-                .execute_batch(sql.as_str())
-                .map_err(|e| convert_sqlite_error(&e))
+        spawn_sqlite(&self.conn, move |conn| {
+            conn.execute_batch(sql.as_str()).map_err(|e| convert_sqlite_error(&e))
         })
-        .await
-        .map_err(|e| {
-            DriverError::new(MappedError::Sqlite {
-                extended_code: 0,
-                message: e.to_string(),
-            })
-        })??;
+        .await?;
         Ok(())
     }
 }
@@ -404,7 +330,7 @@ fn execute_query_sync(conn: &Connection, query: SqlQuery) -> Result<SqlResultSet
         columns.iter().map(|c| c.decl_type().map(|s| s.to_string())).collect()
     };
 
-    let params: Vec<rusqlite::types::Value> = query.args.iter().map(query_value_to_sqlite).collect();
+    let params: Vec<rusqlite::types::Value> = query.args.iter().map(query_value_to_sqlite).collect::<Result<_, _>>()?;
     let params_refs: Vec<&dyn rusqlite::types::ToSql> =
         params.iter().map(|v| v as &dyn rusqlite::types::ToSql).collect();
 
@@ -458,7 +384,7 @@ fn execute_query_sync(conn: &Connection, query: SqlQuery) -> Result<SqlResultSet
 
 fn execute_mutation_sync(conn: &Connection, query: SqlQuery) -> Result<u64, DriverError> {
     query.validate()?;
-    let params: Vec<rusqlite::types::Value> = query.args.iter().map(query_value_to_sqlite).collect();
+    let params: Vec<rusqlite::types::Value> = query.args.iter().map(query_value_to_sqlite).collect::<Result<_, _>>()?;
     let params_refs: Vec<&dyn rusqlite::types::ToSql> =
         params.iter().map(|v| v as &dyn rusqlite::types::ToSql).collect();
 

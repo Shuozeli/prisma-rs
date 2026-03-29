@@ -275,10 +275,7 @@ where
 impl<C: AdbcConnection> Drop for AdbcTransaction<C> {
     fn drop(&mut self) {
         if !self.closed {
-            eprintln!(
-                "[prisma-driver-adbc] WARNING: Transaction dropped without commit/rollback, \
-                 attempting synchronous rollback"
-            );
+            prisma_driver_core::warn_uncommitted_transaction("prisma-driver-adbc");
             // Cannot use spawn_blocking here because Drop bounds cannot be
             // stricter than the struct bounds (which lack Send + 'static).
             // Attempt a synchronous rollback directly.

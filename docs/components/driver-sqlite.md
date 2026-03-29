@@ -4,7 +4,7 @@ SQLite driver implementation.
 
 ## Purpose
 
-Implements the `SqlQueryable` / `SqlDriverAdapter` traits for SQLite using `rusqlite` with
+Implements the `DatabaseDriver` trait for SQLite using `rusqlite` with
 bundled SQLite (no system SQLite dependency required).
 
 ## Public API
@@ -24,5 +24,3 @@ bundled SQLite (no system SQLite dependency required).
 ## Dependencies
 
 `prisma-driver-core`, `rusqlite` (bundled)
-
-Last updated: 2026-03-19

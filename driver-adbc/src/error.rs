@@ -41,8 +41,13 @@ pub fn convert_adbc_error(err: &adbc_core::error::Error) -> DriverError {
     DriverError::new(mapped).with_original(code, message)
 }
 
+#[allow(clippy::useless_conversion)] // c_char is i8 on Linux x86_64, u8 on other platforms
 fn sqlstate_to_string(sqlstate: &[std::ffi::c_char; 5]) -> String {
-    sqlstate.iter().take_while(|&&c| c != 0).map(|&c| c as char).collect()
+    sqlstate
+        .iter()
+        .take_while(|&&c| c != 0)
+        .map(|&c| char::from(u8::try_from(c).unwrap_or(b'?')))
+        .collect()
 }
 
 fn extract_quoted(msg: &str) -> Option<String> {

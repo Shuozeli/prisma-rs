@@ -384,7 +384,7 @@ impl SqlMigrationAwareDriverAdapterFactory for PgDriverAdapterFactory {
 fn build_pg_params(
     args: &[QueryValue],
     stmt_param_types: &[tokio_postgres::types::Type],
-) -> Vec<Box<dyn tokio_postgres::types::ToSql + Sync + Send>> {
+) -> Result<Vec<Box<dyn tokio_postgres::types::ToSql + Sync + Send>>, DriverError> {
     args.iter()
         .enumerate()
         .map(|(i, v)| {
@@ -398,7 +398,7 @@ async fn execute_query(client: &tokio_postgres::Client, query: SqlQuery) -> Resu
     query.validate()?;
     let stmt = client.prepare(&query.sql).await.map_err(|e| convert_pg_error(&e))?;
 
-    let params = build_pg_params(&query.args, stmt.params());
+    let params = build_pg_params(&query.args, stmt.params())?;
 
     let param_refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = params
         .iter()
@@ -441,7 +441,7 @@ async fn execute_mutation(client: &tokio_postgres::Client, query: SqlQuery) -> R
     query.validate()?;
     let stmt = client.prepare(&query.sql).await.map_err(|e| convert_pg_error(&e))?;
 
-    let params = build_pg_params(&query.args, stmt.params());
+    let params = build_pg_params(&query.args, stmt.params())?;
 
     let param_refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = params
         .iter()
@@ -457,16 +457,27 @@ async fn execute_mutation(client: &tokio_postgres::Client, query: SqlQuery) -> R
 }
 
 fn pool_error_to_mapped(err: deadpool_postgres::PoolError) -> MappedError {
-    let message = err.to_string();
-    if message.contains("timed out") {
-        MappedError::SocketTimeout
-    } else if message.contains("authentication") {
-        MappedError::DatabaseAccessDenied { db: None }
-    } else if message.contains("refused") || message.contains("No such file") {
-        MappedError::DatabaseNotReachable { host: None, port: None }
-    } else {
-        MappedError::TooManyConnections {
-            cause: "connection pool exhausted".to_string(),
+    use deadpool_postgres::PoolError;
+    match err {
+        PoolError::Timeout(_) => MappedError::SocketTimeout,
+        PoolError::Backend(ref pg_err) => {
+            // Classify the underlying tokio_postgres error via our existing converter,
+            // but return just the MappedError variant (without DriverError wrapping).
+            convert_pg_error(pg_err).mapped
+        }
+        PoolError::Closed => MappedError::DatabaseNotReachable { host: None, port: None },
+        PoolError::NoRuntimeSpecified => MappedError::Postgres {
+            code: "XX000".to_string(),
+            severity: "ERROR".to_string(),
+            message: "No async runtime specified for deadpool".to_string(),
+            detail: None,
+            column: None,
+            hint: None,
+        },
+        _ => {
+            // PreRecycleHook, PostRecycleHook, or future variants
+            let message = err.to_string();
+            MappedError::TooManyConnections { cause: message }
         }
     }
 }

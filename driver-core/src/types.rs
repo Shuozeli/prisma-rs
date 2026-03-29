@@ -275,45 +275,6 @@ mod tests {
         assert_ne!(IsolationLevel::ReadCommitted, IsolationLevel::Serializable);
     }
 
-    // --- Savepoint SQL per provider ---
-
-    #[test]
-    fn pg_savepoint_sql() {
-        let name = "sp1";
-        assert_eq!(format!("SAVEPOINT {name}"), "SAVEPOINT sp1");
-        assert_eq!(format!("ROLLBACK TO SAVEPOINT {name}"), "ROLLBACK TO SAVEPOINT sp1");
-        assert_eq!(format!("RELEASE SAVEPOINT {name}"), "RELEASE SAVEPOINT sp1");
-    }
-
-    #[test]
-    fn mysql_savepoint_sql() {
-        let name = "sp1";
-        assert_eq!(format!("SAVEPOINT {name}"), "SAVEPOINT sp1");
-        // MySQL uses ROLLBACK TO without SAVEPOINT keyword
-        assert_eq!(format!("ROLLBACK TO {name}"), "ROLLBACK TO sp1");
-        assert_eq!(format!("RELEASE SAVEPOINT {name}"), "RELEASE SAVEPOINT sp1");
-    }
-
-    #[test]
-    fn sqlite_savepoint_sql() {
-        let name = "sp1";
-        assert_eq!(format!("SAVEPOINT {name}"), "SAVEPOINT sp1");
-        // SQLite uses ROLLBACK TO without SAVEPOINT keyword
-        assert_eq!(format!("ROLLBACK TO {name}"), "ROLLBACK TO sp1");
-        // SQLite RELEASE SAVEPOINT
-        assert_eq!(format!("RELEASE SAVEPOINT {name}"), "RELEASE SAVEPOINT sp1");
-    }
-
-    #[test]
-    fn savepoint_names_support_special_formats() {
-        // Prisma uses sequential names like s1, s2, s3 for nested savepoints
-        for i in 1..=5 {
-            let name = format!("s{i}");
-            let create = format!("SAVEPOINT {name}");
-            assert_eq!(create, format!("SAVEPOINT s{i}"));
-        }
-    }
-
     // --- TransactionOptions ---
 
     #[test]

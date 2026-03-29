@@ -274,7 +274,7 @@ impl SqlDriverAdapterFactory for MySqlDriverAdapterFactory {
 
 async fn execute_query(conn: &mut Conn, query: SqlQuery) -> Result<SqlResultSet, DriverError> {
     query.validate()?;
-    let params: Vec<mysql_async::Value> = query.args.iter().map(query_value_to_mysql).collect();
+    let params: Vec<mysql_async::Value> = query.args.iter().map(query_value_to_mysql).collect::<Result<_, _>>()?;
 
     let mut result = conn
         .exec_iter(&query.sql, params)
@@ -313,7 +313,7 @@ async fn execute_query(conn: &mut Conn, query: SqlQuery) -> Result<SqlResultSet,
 
 async fn execute_mutation(conn: &mut Conn, query: SqlQuery) -> Result<u64, DriverError> {
     query.validate()?;
-    let params: Vec<mysql_async::Value> = query.args.iter().map(query_value_to_mysql).collect();
+    let params: Vec<mysql_async::Value> = query.args.iter().map(query_value_to_mysql).collect::<Result<_, _>>()?;
 
     conn.exec_drop(&query.sql, params)
         .await

@@ -1,4 +1,4 @@
-use prisma_driver_core::{ColumnType, QueryValue, ResultValue};
+use prisma_driver_core::{ColumnType, DriverError, MappedError, QueryValue, ResultValue};
 use rusqlite::types::ValueRef;
 
 /// Map a SQLite declared column type string to a Prisma `ColumnType`.
@@ -61,23 +61,27 @@ pub fn infer_column_type(value: ValueRef<'_>) -> ColumnType {
 }
 
 /// Convert a `QueryValue` to a `rusqlite::types::Value`.
-pub fn query_value_to_sqlite(value: &QueryValue) -> rusqlite::types::Value {
+pub fn query_value_to_sqlite(value: &QueryValue) -> Result<rusqlite::types::Value, DriverError> {
     match value {
-        QueryValue::Null => rusqlite::types::Value::Null,
-        QueryValue::Boolean(v) => rusqlite::types::Value::Integer(if *v { 1 } else { 0 }),
-        QueryValue::Int32(v) => rusqlite::types::Value::Integer(*v as i64),
-        QueryValue::Int64(v) => rusqlite::types::Value::Integer(*v),
-        QueryValue::Float(v) => rusqlite::types::Value::Real(*v as f64),
-        QueryValue::Double(v) => rusqlite::types::Value::Real(*v),
-        QueryValue::Numeric(v) => rusqlite::types::Value::Text(v.to_string()),
-        QueryValue::Text(v) => rusqlite::types::Value::Text(v.clone()),
-        QueryValue::Bytes(v) => rusqlite::types::Value::Blob(v.clone()),
-        QueryValue::Uuid(v) => rusqlite::types::Value::Text(v.to_string()),
-        QueryValue::DateTime(v) => rusqlite::types::Value::Text(v.format("%Y-%m-%d %H:%M:%S%.f").to_string()),
-        QueryValue::Date(v) => rusqlite::types::Value::Text(v.format("%Y-%m-%d").to_string()),
-        QueryValue::Time(v) => rusqlite::types::Value::Text(v.format("%H:%M:%S%.f").to_string()),
-        QueryValue::Json(v) => rusqlite::types::Value::Text(v.to_string()),
-        QueryValue::Array(_) => rusqlite::types::Value::Null,
+        QueryValue::Null => Ok(rusqlite::types::Value::Null),
+        QueryValue::Boolean(v) => Ok(rusqlite::types::Value::Integer(if *v { 1 } else { 0 })),
+        QueryValue::Int32(v) => Ok(rusqlite::types::Value::Integer(*v as i64)),
+        QueryValue::Int64(v) => Ok(rusqlite::types::Value::Integer(*v)),
+        QueryValue::Float(v) => Ok(rusqlite::types::Value::Real(*v as f64)),
+        QueryValue::Double(v) => Ok(rusqlite::types::Value::Real(*v)),
+        QueryValue::Numeric(v) => Ok(rusqlite::types::Value::Text(v.to_string())),
+        QueryValue::Text(v) => Ok(rusqlite::types::Value::Text(v.clone())),
+        QueryValue::Bytes(v) => Ok(rusqlite::types::Value::Blob(v.clone())),
+        QueryValue::Uuid(v) => Ok(rusqlite::types::Value::Text(v.to_string())),
+        QueryValue::DateTime(v) => Ok(rusqlite::types::Value::Text(
+            v.format("%Y-%m-%d %H:%M:%S%.f").to_string(),
+        )),
+        QueryValue::Date(v) => Ok(rusqlite::types::Value::Text(v.format("%Y-%m-%d").to_string())),
+        QueryValue::Time(v) => Ok(rusqlite::types::Value::Text(v.format("%H:%M:%S%.f").to_string())),
+        QueryValue::Json(v) => Ok(rusqlite::types::Value::Text(v.to_string())),
+        QueryValue::Array(_) => Err(DriverError::new(MappedError::InvalidInputValue {
+            message: "Array parameters are not supported for SQLite".into(),
+        })),
     }
 }
 
@@ -248,13 +252,16 @@ mod tests {
 
     #[test]
     fn query_value_null() {
-        assert_eq!(query_value_to_sqlite(&QueryValue::Null), rusqlite::types::Value::Null);
+        assert_eq!(
+            query_value_to_sqlite(&QueryValue::Null).unwrap(),
+            rusqlite::types::Value::Null
+        );
     }
 
     #[test]
     fn query_value_boolean_true() {
         assert_eq!(
-            query_value_to_sqlite(&QueryValue::Boolean(true)),
+            query_value_to_sqlite(&QueryValue::Boolean(true)).unwrap(),
             rusqlite::types::Value::Integer(1)
         );
     }
@@ -262,7 +269,7 @@ mod tests {
     #[test]
     fn query_value_boolean_false() {
         assert_eq!(
-            query_value_to_sqlite(&QueryValue::Boolean(false)),
+            query_value_to_sqlite(&QueryValue::Boolean(false)).unwrap(),
             rusqlite::types::Value::Integer(0)
         );
     }
@@ -270,7 +277,7 @@ mod tests {
     #[test]
     fn query_value_int32() {
         assert_eq!(
-            query_value_to_sqlite(&QueryValue::Int32(42)),
+            query_value_to_sqlite(&QueryValue::Int32(42)).unwrap(),
             rusqlite::types::Value::Integer(42)
         );
     }
@@ -278,14 +285,14 @@ mod tests {
     #[test]
     fn query_value_int64() {
         assert_eq!(
-            query_value_to_sqlite(&QueryValue::Int64(9_999_999_999)),
+            query_value_to_sqlite(&QueryValue::Int64(9_999_999_999)).unwrap(),
             rusqlite::types::Value::Integer(9_999_999_999)
         );
     }
 
     #[test]
     fn query_value_float() {
-        if let rusqlite::types::Value::Real(v) = query_value_to_sqlite(&QueryValue::Float(3.14)) {
+        if let rusqlite::types::Value::Real(v) = query_value_to_sqlite(&QueryValue::Float(3.14)).unwrap() {
             assert!((v - 3.14f32 as f64).abs() < 0.001);
         } else {
             panic!("Expected Real");
@@ -295,7 +302,7 @@ mod tests {
     #[test]
     fn query_value_double() {
         assert_eq!(
-            query_value_to_sqlite(&QueryValue::Double(2.718281828)),
+            query_value_to_sqlite(&QueryValue::Double(2.718281828)).unwrap(),
             rusqlite::types::Value::Real(2.718281828)
         );
     }
@@ -304,7 +311,7 @@ mod tests {
     fn query_value_numeric() {
         let dec = rust_decimal::Decimal::new(12345, 2); // 123.45
         assert_eq!(
-            query_value_to_sqlite(&QueryValue::Numeric(dec)),
+            query_value_to_sqlite(&QueryValue::Numeric(dec)).unwrap(),
             rusqlite::types::Value::Text("123.45".into())
         );
     }
@@ -312,7 +319,7 @@ mod tests {
     #[test]
     fn query_value_text() {
         assert_eq!(
-            query_value_to_sqlite(&QueryValue::Text("hello".into())),
+            query_value_to_sqlite(&QueryValue::Text("hello".into())).unwrap(),
             rusqlite::types::Value::Text("hello".into())
         );
     }
@@ -320,7 +327,7 @@ mod tests {
     #[test]
     fn query_value_bytes() {
         assert_eq!(
-            query_value_to_sqlite(&QueryValue::Bytes(vec![0xDE, 0xAD])),
+            query_value_to_sqlite(&QueryValue::Bytes(vec![0xDE, 0xAD])).unwrap(),
             rusqlite::types::Value::Blob(vec![0xDE, 0xAD])
         );
     }
@@ -329,7 +336,7 @@ mod tests {
     fn query_value_uuid() {
         let u = uuid::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
         assert_eq!(
-            query_value_to_sqlite(&QueryValue::Uuid(u)),
+            query_value_to_sqlite(&QueryValue::Uuid(u)).unwrap(),
             rusqlite::types::Value::Text("550e8400-e29b-41d4-a716-446655440000".into())
         );
     }
@@ -340,7 +347,7 @@ mod tests {
             .unwrap()
             .and_hms_opt(10, 30, 0)
             .unwrap();
-        let result = query_value_to_sqlite(&QueryValue::DateTime(dt));
+        let result = query_value_to_sqlite(&QueryValue::DateTime(dt)).unwrap();
         if let rusqlite::types::Value::Text(s) = result {
             assert!(s.starts_with("2024-01-15 10:30:00"));
         } else {
@@ -352,7 +359,7 @@ mod tests {
     fn query_value_date() {
         let d = chrono::NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
         assert_eq!(
-            query_value_to_sqlite(&QueryValue::Date(d)),
+            query_value_to_sqlite(&QueryValue::Date(d)).unwrap(),
             rusqlite::types::Value::Text("2024-06-15".into())
         );
     }
@@ -360,7 +367,7 @@ mod tests {
     #[test]
     fn query_value_time() {
         let t = chrono::NaiveTime::from_hms_opt(14, 30, 45).unwrap();
-        let result = query_value_to_sqlite(&QueryValue::Time(t));
+        let result = query_value_to_sqlite(&QueryValue::Time(t)).unwrap();
         if let rusqlite::types::Value::Text(s) = result {
             assert!(s.starts_with("14:30:45"));
         } else {
@@ -371,7 +378,7 @@ mod tests {
     #[test]
     fn query_value_json() {
         let j = serde_json::json!({"key": "value"});
-        let result = query_value_to_sqlite(&QueryValue::Json(j));
+        let result = query_value_to_sqlite(&QueryValue::Json(j)).unwrap();
         if let rusqlite::types::Value::Text(s) = result {
             assert!(s.contains("key"));
             assert!(s.contains("value"));
@@ -381,9 +388,9 @@ mod tests {
     }
 
     #[test]
-    fn query_value_array_becomes_null() {
+    fn query_value_array_returns_error() {
         let arr = QueryValue::Array(vec![QueryValue::Int32(1), QueryValue::Int32(2)]);
-        assert_eq!(query_value_to_sqlite(&arr), rusqlite::types::Value::Null);
+        assert!(query_value_to_sqlite(&arr).is_err());
     }
 
     // --- sqlite_value_to_result comprehensive ---

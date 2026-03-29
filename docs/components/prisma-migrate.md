@@ -36,6 +36,4 @@ migrations. The shadow database URL can be configured separately.
 
 ## Dependencies
 
-`schema-core`, `schema-commands`, `schema-connector`, `json-rpc-api`, `psl`, `user-facing-errors` (all from prisma-engines, git rev 94a226b)
-
-Last updated: 2026-03-19
+`schema-core`, `schema-commands`, `schema-connector`, `psl` (all from prisma-engines)

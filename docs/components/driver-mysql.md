@@ -4,7 +4,7 @@ MySQL driver implementation.
 
 ## Purpose
 
-Implements the `SqlQueryable` / `SqlDriverAdapter` traits for MySQL using `mysql_async`
+Implements the `DatabaseDriver` trait for MySQL using `mysql_async`
 with its built-in connection pooling.
 
 ## Public API
@@ -29,5 +29,3 @@ Maps MySQL native types to `QueryValue`:
 ## Dependencies
 
 `prisma-driver-core`, `mysql_async`
-
-Last updated: 2026-03-19

@@ -20,7 +20,7 @@ queries through database adapters and performing in-memory data transformation.
 The executor handles:
 
 - **SQL Execution**: Renders `DbQuery` templates into concrete `SqlQuery` values and sends them to the database driver
-- **Expression Interpretation**: Walks the expression tree (Value, Get, Let, Seq, Query, Execute, Join, DataMap, Validate, If, Process, etc.)
+- **Expression Interpretation**: Walks the expression tree (Get, Let, Seq, If, MapGet, etc.)
 - **In-Memory Filtering**: Evaluates `where` clauses on result sets
 - **Sorting**: `orderBy` with multi-field and nested relation sorting
 - **Pagination**: `skip`, `take`, cursor-based pagination
@@ -52,6 +52,4 @@ IValue (JSON-like result)
 
 ## Dependencies
 
-`prisma-driver-core`, `prisma-ir`, `chrono`, `uuid`, `rust_decimal`, `indexmap`, `base64`, `tracing`
-
-Last updated: 2026-03-19
+`prisma-driver-core`, `prisma-ir`, `chrono`, `uuid`, `indexmap`

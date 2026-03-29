@@ -1,5 +1,5 @@
 use postgres_types::Type as PgType;
-use prisma_driver_core::{ColumnType, QueryValue, ResultValue};
+use prisma_driver_core::{ColumnType, DriverError, MappedError, QueryValue, ResultValue};
 
 /// A NULL value that accepts any PostgreSQL type.
 ///
@@ -95,22 +95,24 @@ pub fn pg_type_to_column_type(pg_type: &PgType) -> ColumnType {
 }
 
 /// Convert a `QueryValue` into a boxed `ToSql` parameter for tokio-postgres.
-pub fn query_value_to_pg_param(value: &QueryValue) -> Box<dyn tokio_postgres::types::ToSql + Sync + Send> {
+pub fn query_value_to_pg_param(
+    value: &QueryValue,
+) -> Result<Box<dyn tokio_postgres::types::ToSql + Sync + Send>, DriverError> {
     match value {
-        QueryValue::Null => Box::new(PgNull),
-        QueryValue::Boolean(v) => Box::new(*v),
-        QueryValue::Int32(v) => Box::new(*v),
-        QueryValue::Int64(v) => Box::new(*v),
-        QueryValue::Float(v) => Box::new(*v),
-        QueryValue::Double(v) => Box::new(*v),
-        QueryValue::Numeric(v) => Box::new(v.to_string()),
-        QueryValue::Text(v) => Box::new(v.clone()),
-        QueryValue::Bytes(v) => Box::new(v.clone()),
-        QueryValue::Uuid(v) => Box::new(*v),
-        QueryValue::DateTime(v) => Box::new(*v),
-        QueryValue::Date(v) => Box::new(*v),
-        QueryValue::Time(v) => Box::new(*v),
-        QueryValue::Json(v) => Box::new(v.clone()),
+        QueryValue::Null => Ok(Box::new(PgNull)),
+        QueryValue::Boolean(v) => Ok(Box::new(*v)),
+        QueryValue::Int32(v) => Ok(Box::new(*v)),
+        QueryValue::Int64(v) => Ok(Box::new(*v)),
+        QueryValue::Float(v) => Ok(Box::new(*v)),
+        QueryValue::Double(v) => Ok(Box::new(*v)),
+        QueryValue::Numeric(v) => Ok(Box::new(v.to_string())),
+        QueryValue::Text(v) => Ok(Box::new(v.clone())),
+        QueryValue::Bytes(v) => Ok(Box::new(v.clone())),
+        QueryValue::Uuid(v) => Ok(Box::new(*v)),
+        QueryValue::DateTime(v) => Ok(Box::new(*v)),
+        QueryValue::Date(v) => Ok(Box::new(*v)),
+        QueryValue::Time(v) => Ok(Box::new(*v)),
+        QueryValue::Json(v) => Ok(Box::new(v.clone())),
         QueryValue::Array(items) => {
             // Convert array elements to their string representations and bind
             // as a PostgreSQL text array. This works for most column types since
@@ -138,7 +140,7 @@ pub fn query_value_to_pg_param(value: &QueryValue) -> Box<dyn tokio_postgres::ty
                     QueryValue::Array(_) => None,
                 })
                 .collect();
-            Box::new(strings)
+            Ok(Box::new(strings))
         }
     }
 }
@@ -152,7 +154,7 @@ pub fn query_value_to_pg_param(value: &QueryValue) -> Box<dyn tokio_postgres::ty
 pub fn query_value_to_pg_param_typed(
     value: &QueryValue,
     pg_type: Option<&PgType>,
-) -> Box<dyn tokio_postgres::types::ToSql + Sync + Send> {
+) -> Result<Box<dyn tokio_postgres::types::ToSql + Sync + Send>, DriverError> {
     use tokio_postgres::types::Type as T;
 
     match (value, pg_type) {
@@ -173,16 +175,20 @@ pub fn query_value_to_pg_param_typed(
             Box::new(narrowed)
         }
         // INT4 column but we have Int32 -- already correct
-        (QueryValue::Int32(v), Some(t)) if *t == T::INT8 => Box::new(*v as i64),
+        (QueryValue::Int32(v), Some(t)) if *t == T::INT8 => Ok(Box::new(*v as i64)),
         // BOOL column but we have Int64 (Prisma sometimes sends 0/1 for bool)
-        (QueryValue::Int64(v), Some(t)) if *t == T::BOOL => Box::new(*v != 0),
-        (QueryValue::Int32(v), Some(t)) if *t == T::BOOL => Box::new(*v != 0),
+        (QueryValue::Int64(v), Some(t)) if *t == T::BOOL => Ok(Box::new(*v != 0)),
+        (QueryValue::Int32(v), Some(t)) if *t == T::BOOL => Ok(Box::new(*v != 0)),
         // Default: use the untyped conversion
         _ => query_value_to_pg_param(value),
     }
 }
 
 /// Extract a `ResultValue` from a tokio-postgres `Row` at the given column index.
+///
+/// If a type extraction fails on a non-NULL column, a warning is logged and
+/// `ResultValue::Null` is returned. This avoids silent data loss while
+/// maintaining backward compatibility (callers do not need to handle errors).
 pub fn pg_row_value(row: &tokio_postgres::Row, col_idx: usize, col_type: ColumnType) -> ResultValue {
     // Check for NULL by trying to get an Option<&str>. If the column is NULL,
     // `try_get::<_, Option<T>>` returns Ok(None) for any T.
@@ -190,10 +196,23 @@ pub fn pg_row_value(row: &tokio_postgres::Row, col_idx: usize, col_type: ColumnT
         return ResultValue::Null;
     }
 
+    // Helper: log a warning when type extraction fails and return Null.
+    macro_rules! warn_null {
+        ($err:expr, $expected:expr) => {{
+            tracing::warn!(
+                col_idx = col_idx,
+                expected_type = $expected,
+                error = %$err,
+                "pg_row_value: type extraction failed, returning Null"
+            );
+            ResultValue::Null
+        }};
+    }
+
     match col_type {
         ColumnType::Boolean => match row.try_get::<_, bool>(col_idx) {
             Ok(v) => ResultValue::Boolean(v),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "bool"),
         },
         ColumnType::Int32 => {
             // Try i32 first, then i16
@@ -202,6 +221,11 @@ pub fn pg_row_value(row: &tokio_postgres::Row, col_idx: usize, col_type: ColumnT
             } else if let Ok(v) = row.try_get::<_, i16>(col_idx) {
                 ResultValue::Int32(v as i32)
             } else {
+                tracing::warn!(
+                    col_idx = col_idx,
+                    expected_type = "i32/i16",
+                    "pg_row_value: type extraction failed, returning Null"
+                );
                 ResultValue::Null
             }
         }
@@ -211,34 +235,39 @@ pub fn pg_row_value(row: &tokio_postgres::Row, col_idx: usize, col_type: ColumnT
             } else if let Ok(v) = row.try_get::<_, u32>(col_idx) {
                 ResultValue::Int64(v as i64)
             } else {
+                tracing::warn!(
+                    col_idx = col_idx,
+                    expected_type = "i64/u32",
+                    "pg_row_value: type extraction failed, returning Null"
+                );
                 ResultValue::Null
             }
         }
         ColumnType::Float => match row.try_get::<_, f32>(col_idx) {
             Ok(v) if v.is_nan() || v.is_infinite() => ResultValue::Null,
             Ok(v) => ResultValue::Float(v),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "f32"),
         },
         ColumnType::Double => match row.try_get::<_, f64>(col_idx) {
             Ok(v) if v.is_nan() || v.is_infinite() => ResultValue::Null,
             Ok(v) => ResultValue::Double(v),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "f64"),
         },
         ColumnType::Numeric => match row.try_get::<_, &str>(col_idx) {
             Ok(v) => ResultValue::Numeric(v.to_string()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "numeric/str"),
         },
         ColumnType::Text | ColumnType::Character | ColumnType::Enum => match row.try_get::<_, &str>(col_idx) {
             Ok(v) => ResultValue::Text(v.to_string()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "text/str"),
         },
         ColumnType::Date => match row.try_get::<_, chrono::NaiveDate>(col_idx) {
             Ok(v) => ResultValue::Date(v.format("%Y-%m-%d").to_string()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "NaiveDate"),
         },
         ColumnType::Time => match row.try_get::<_, chrono::NaiveTime>(col_idx) {
             Ok(v) => ResultValue::Time(v.format("%H:%M:%S%.f").to_string()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "NaiveTime"),
         },
         ColumnType::DateTime => {
             if let Ok(v) = row.try_get::<_, chrono::NaiveDateTime>(col_idx) {
@@ -246,60 +275,65 @@ pub fn pg_row_value(row: &tokio_postgres::Row, col_idx: usize, col_type: ColumnT
             } else if let Ok(v) = row.try_get::<_, chrono::DateTime<chrono::Utc>>(col_idx) {
                 ResultValue::DateTime(v.format("%Y-%m-%d %H:%M:%S%.f+00:00").to_string())
             } else {
+                tracing::warn!(
+                    col_idx = col_idx,
+                    expected_type = "NaiveDateTime/DateTime<Utc>",
+                    "pg_row_value: type extraction failed, returning Null"
+                );
                 ResultValue::Null
             }
         }
         ColumnType::Json => match row.try_get::<_, serde_json::Value>(col_idx) {
             Ok(v) => ResultValue::Json(v.to_string()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "serde_json::Value"),
         },
         ColumnType::Uuid => match row.try_get::<_, uuid::Uuid>(col_idx) {
             Ok(v) => ResultValue::Uuid(v.to_string()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Uuid"),
         },
         ColumnType::Bytes => match row.try_get::<_, Vec<u8>>(col_idx) {
             Ok(v) => ResultValue::Bytes(v),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<u8>"),
         },
 
         // Array types -- extract as Vec and wrap
         ColumnType::Int32Array => match row.try_get::<_, Vec<i32>>(col_idx) {
             Ok(v) => ResultValue::Array(v.into_iter().map(ResultValue::Int32).collect()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<i32>"),
         },
         ColumnType::Int64Array => match row.try_get::<_, Vec<i64>>(col_idx) {
             Ok(v) => ResultValue::Array(v.into_iter().map(ResultValue::Int64).collect()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<i64>"),
         },
         ColumnType::FloatArray => match row.try_get::<_, Vec<f32>>(col_idx) {
             Ok(v) => ResultValue::Array(v.into_iter().map(ResultValue::Float).collect()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<f32>"),
         },
         ColumnType::DoubleArray => match row.try_get::<_, Vec<f64>>(col_idx) {
             Ok(v) => ResultValue::Array(v.into_iter().map(ResultValue::Double).collect()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<f64>"),
         },
         ColumnType::BooleanArray => match row.try_get::<_, Vec<bool>>(col_idx) {
             Ok(v) => ResultValue::Array(v.into_iter().map(ResultValue::Boolean).collect()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<bool>"),
         },
         ColumnType::TextArray | ColumnType::CharacterArray | ColumnType::EnumArray => {
             match row.try_get::<_, Vec<String>>(col_idx) {
                 Ok(v) => ResultValue::Array(v.into_iter().map(ResultValue::Text).collect()),
-                Err(_) => ResultValue::Null,
+                Err(e) => warn_null!(e, "Vec<String>"),
             }
         }
         ColumnType::UuidArray => match row.try_get::<_, Vec<uuid::Uuid>>(col_idx) {
             Ok(v) => ResultValue::Array(v.into_iter().map(|u| ResultValue::Uuid(u.to_string())).collect()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<Uuid>"),
         },
         ColumnType::JsonArray => match row.try_get::<_, Vec<serde_json::Value>>(col_idx) {
             Ok(v) => ResultValue::Array(v.into_iter().map(|j| ResultValue::Json(j.to_string())).collect()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<serde_json::Value>"),
         },
         ColumnType::BytesArray => match row.try_get::<_, Vec<Vec<u8>>>(col_idx) {
             Ok(v) => ResultValue::Array(v.into_iter().map(ResultValue::Bytes).collect()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<Vec<u8>>"),
         },
         ColumnType::DateArray => match row.try_get::<_, Vec<chrono::NaiveDate>>(col_idx) {
             Ok(v) => ResultValue::Array(
@@ -307,7 +341,7 @@ pub fn pg_row_value(row: &tokio_postgres::Row, col_idx: usize, col_type: ColumnT
                     .map(|d| ResultValue::Date(d.format("%Y-%m-%d").to_string()))
                     .collect(),
             ),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<NaiveDate>"),
         },
         ColumnType::TimeArray => match row.try_get::<_, Vec<chrono::NaiveTime>>(col_idx) {
             Ok(v) => ResultValue::Array(
@@ -315,7 +349,7 @@ pub fn pg_row_value(row: &tokio_postgres::Row, col_idx: usize, col_type: ColumnT
                     .map(|t| ResultValue::Time(t.format("%H:%M:%S%.f").to_string()))
                     .collect(),
             ),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<NaiveTime>"),
         },
         ColumnType::DateTimeArray => match row.try_get::<_, Vec<chrono::NaiveDateTime>>(col_idx) {
             Ok(v) => ResultValue::Array(
@@ -323,11 +357,11 @@ pub fn pg_row_value(row: &tokio_postgres::Row, col_idx: usize, col_type: ColumnT
                     .map(|dt| ResultValue::DateTime(dt.format("%Y-%m-%d %H:%M:%S%.f").to_string()))
                     .collect(),
             ),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<NaiveDateTime>"),
         },
         ColumnType::NumericArray => match row.try_get::<_, Vec<String>>(col_idx) {
             Ok(v) => ResultValue::Array(v.into_iter().map(ResultValue::Numeric).collect()),
-            Err(_) => ResultValue::Null,
+            Err(e) => warn_null!(e, "Vec<String>/numeric"),
         },
 
         _ => ResultValue::Null,
