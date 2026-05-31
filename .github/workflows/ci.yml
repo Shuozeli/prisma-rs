@@ -65,9 +65,10 @@ jobs:
           -p prisma-schema
           -p prisma-compiler
           -p prisma-codegen
-          -p prisma-query-executor
           -p prisma-error
           -p prisma-cross-compat
+          &&
+          cargo test -p prisma-query-executor --lib
 
   test-integration:
     name: Integration Tests
@@ -111,7 +112,7 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
       - name: Run integration tests
-        run: cargo test -p prisma-driver-pg -p prisma-driver-mysql -p prisma-driver-sqlite
+        run: cargo test -p prisma-driver-pg -p prisma-driver-mysql -p prisma-driver-sqlite -p prisma-query-executor
 
   audit:
     name: Security Audit
