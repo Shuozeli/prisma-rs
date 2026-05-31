@@ -484,6 +484,8 @@ fn pool_error_to_mapped(err: deadpool_postgres::PoolError) -> MappedError {
 
 /// Build a rustls `ClientConfig` using the system's native certificate store.
 fn build_rustls_config() -> Result<rustls::ClientConfig, Box<dyn std::error::Error>> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     let mut root_store = rustls::RootCertStore::empty();
     let result = rustls_native_certs::load_native_certs();
     for cert in result.certs {

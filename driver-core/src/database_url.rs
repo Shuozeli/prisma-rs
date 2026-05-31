@@ -165,7 +165,7 @@ mod tests {
         let url = DatabaseUrl::parse("mysql://root:p%40ssw0rd@db.example.com:3306/app").unwrap();
         assert_eq!(url.scheme(), "mysql");
         assert_eq!(url.username(), "root");
-        assert_eq!(url.expose_password(), Some("p%40ssw0rd"));
+        assert_eq!(url.expose_password(), Some("p@ssw0rd"));
         assert_eq!(url.database(), Some("app"));
     }
 
