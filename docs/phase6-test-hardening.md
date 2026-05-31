@@ -1,6 +1,6 @@
 # Phase 6: Test Coverage Hardening & Integration Testing
 
-Last updated: 2026-03-07
+Last updated: 2026-03-26
 
 ## Goal
 
@@ -8,7 +8,7 @@ Close the test coverage gap between our Rust implementation and the original
 Prisma TS codebase. Focus on porting high-value unit tests and building
 end-to-end integration tests against real databases.
 
-**Progress: 632 tests (up from 309 at start of phase 6)**
+**Progress: 748 tests total across workspace**
 
 ---
 

@@ -1,6 +1,6 @@
 # Prisma TypeScript to Rust Migration Plan
 
-Last updated: 2026-03-07
+Last updated: 2026-03-26
 
 ## Overview
 
@@ -64,7 +64,7 @@ Bring the existing Rust components from `prisma-engines` into this workspace.
 ### 0.3: Cross-compat test infrastructure
 
 - Create test harness that can run queries through both TS and Rust paths
-- Docker-based database provisioning (PostgreSQL, MySQL, SQLite, SQL Server)
+- Docker-based database provisioning (PostgreSQL, MySQL, SQLite)
 - Golden test framework: schema + operations + expected output
 
 **Exit criteria:** All existing prisma-engines tests pass in the new workspace.
@@ -106,20 +106,16 @@ Define the core trait matching `SqlQueryable` / `SqlDriverAdapter` interfaces:
 - `rusqlite` or `sqlx::sqlite`
 - Cross-compat vs `adapter-better-sqlite3`
 
-### 1.5: SQL Server driver
-
-- `tiberius` crate
-- Cross-compat vs `adapter-mssql`
-
-### 1.6: Error mapping
+### 1.5: Error mapping
 
 Port error mapping from TypeScript adapters:
 - Each adapter's `errors.ts` -> Rust `MappedError` enum
 - `rethrowAsUserFacing()` -> Rust equivalent producing P2xxx codes
 - Match the `MappedError` kind taxonomy exactly
 
-**Exit criteria:** All four drivers can execute raw SQL and return identical
-`ResultSet` structures as the TypeScript adapters for the same queries.
+**Exit criteria:** All three drivers (PostgreSQL, MySQL, SQLite) can execute raw
+SQL and return identical `SqlResultSet` structures as the TypeScript adapters
+for the same queries.
 
 ---
 
@@ -161,7 +157,7 @@ For each of the Prisma client operations:
 - `$executeRaw`, `$queryRaw`
 - `$transaction` (sequential and interactive)
 
-Verify identical results for each operation against all four databases.
+Verify identical results for each operation against all supported databases.
 
 **Exit criteria:** Full Prisma client operation coverage. Cross-compat tests pass
 for all operations on all supported databases.

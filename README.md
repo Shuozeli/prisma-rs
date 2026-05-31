@@ -92,6 +92,7 @@ prisma-schema/      Schema types mirroring the Prisma schema AST
 prisma-compiler/    Query planning and compilation
 prisma-migrate/     Migration engine (RPC bridge to schema engine)
 prisma-error/       Shared error types
+prisma-ir/          Owned intermediate representation types for query plans
 cross-compat/       Cross-compatibility tests (Rust vs TypeScript)
 query-executor/     In-memory query execution (filter, sort, paginate, aggregate)
 prisma-client/      Client runtime (Accelerate integration, transactions)

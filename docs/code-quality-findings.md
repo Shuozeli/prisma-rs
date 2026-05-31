@@ -19,7 +19,7 @@ This bypasses log filtering, structured logging, and makes warnings invisible to
 - **driver-pg/src/conversion.rs:120-124** -- Array parameter exceeding MAX_ARRAY_PARAMS silently truncated with only an `eprintln!` warning
 - **Severity:** High -- silent data loss
 
-**Fix:** Removed the silent truncation. Array elements are now passed without a size limit (the database's own bind-parameter limit applies).
+**Fix:** Changed from silent truncation to returning `DriverError::ValueOutOfRange` when array exceeds `MAX_ARRAY_PARAMS` (32,768 elements). The limit is retained to prevent excessive memory allocation, but the failure mode is now explicit.
 **Status:** DONE
 
 ### 1.3 eprintln! for INT4/INT2 truncation in PG typed params

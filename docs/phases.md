@@ -1,10 +1,10 @@
 # Prisma TS-to-Rust Migration Phases
 
-Last updated: 2026-03-08
+Last updated: 2026-03-26
 
 ## Current State
 
-Cargo workspace set up under `prisma-rs/` with 20 crates. Phases 0-7 done.
+Cargo workspace set up under `prisma-rs/` with 17 crates. Phases 0-7 done.
 
 | Phase | Name                        | Priority | Status      | Tests |
 |-------|-----------------------------|----------|-------------|-------|
@@ -16,7 +16,7 @@ Cargo workspace set up under `prisma-rs/` with 20 crates. Phases 0-7 done.
 | 5     | Advanced Features & Polish  | P2       | Done        | 65    |
 | 6     | Test Coverage Hardening     | P1       | Done        | 323   |
 | 7     | DuckDB, ADBC & Flight SQL   | P2       | Done        | 73    |
-| **Total** |                         |          |             | **705**|
+| **Total** |                         |          |             | **748**|
 
 ---
 
@@ -125,10 +125,10 @@ provides type-safe access to all operations.
 | 5.2 | `$extends` API + middleware pipeline | Done (middleware pipeline, result extensions, 10 tests) |
 | 5.3 | SQL Commenter (query tags, trace context) | Done (`SqlComment` builder, OTel traceparent, 9 tests) |
 | 5.4 | OpenTelemetry + query logging | Done (`tracing` spans, `QueryEvent`, `LogConfig`, 5 tests) |
-| 5.5 | Neon adapter (serverless PostgreSQL) | Done (`driver-neon` crate, HTTP API, 9 tests) |
-| 5.6 | PlanetScale adapter (serverless MySQL) | Done (`driver-planetscale` crate, HTTP API, 12 tests) |
-| 5.7 | D1 adapter (Cloudflare) | Done (`driver-d1` crate, HTTP API, 10 tests) |
-| 5.8 | Prisma Postgres adapter | Done (`driver-prisma-postgres` crate, HTTP API, 5 tests) |
+| 5.5 | Neon adapter (serverless PostgreSQL) | Out of scope (HTTP adapter, see CLAUDE.md) |
+| 5.6 | PlanetScale adapter (serverless MySQL) | Out of scope (HTTP adapter, see CLAUDE.md) |
+| 5.7 | D1 adapter (Cloudflare) | Out of scope (HTTP adapter, see CLAUDE.md) |
+| 5.8 | Prisma Postgres adapter | Out of scope (HTTP adapter, see CLAUDE.md) |
 
 **Exit criteria:** Feature parity with the TypeScript implementation.
 
@@ -175,7 +175,7 @@ See [`phase6-test-hardening.md`](phase6-test-hardening.md) for full details.
 | 6.13 | PG end-to-end integration tests | Done (+18 tests) |
 | 6.14 | MySQL end-to-end integration tests | Done (+15 tests, 3 ignored) |
 
-**Exit criteria:** Test coverage gap significantly closed. 632 total tests.
+**Exit criteria:** Test coverage gap significantly closed.
 
 ---
 
@@ -195,7 +195,7 @@ See [`phase6-test-hardening.md`](phase6-test-hardening.md) for full details.
 - `InitializeRecord` scope resolution: Pass `scope` to `initialize_record`/`apply_field_operations` to resolve `Placeholder` values
 - DuckDB `column_type()` requires execution: Use `Rows::as_ref()` to access metadata post-execution
 
-**Exit criteria:** DuckDB works as embedded test database. ADBC and Flight SQL adapters functional. 705 total tests.
+**Exit criteria:** DuckDB works as embedded test database. ADBC and Flight SQL adapters functional. 748 total tests.
 
 ---
 

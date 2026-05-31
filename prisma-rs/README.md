@@ -81,15 +81,16 @@ cargo run -p prisma-cli -- --help
 ## Architecture
 
 ```
-driver-core/        Database driver trait and common types (DriverError, ResultSet, etc.)
+driver-core/        Database driver traits and common types (SqlQueryable, SqlResultSet, DriverError, etc.)
 driver-pg/          PostgreSQL driver (tokio-postgres + deadpool connection pooling)
 driver-mysql/       MySQL driver (mysql_async)
 driver-sqlite/      SQLite driver (rusqlite, bundled)
-driver-duckdb/      DuckDB driver (via ADBC)
+driver-duckdb/      DuckDB driver (bundled duckdb crate)
 driver-adbc/        Arrow Database Connectivity driver
 driver-flightsql/   Arrow Flight SQL driver
 prisma-schema/      Schema types mirroring the Prisma schema AST
 prisma-compiler/    Query planning and compilation
+prisma-ir/          Owned intermediate representation types for query plans
 prisma-migrate/     Migration engine (RPC bridge to schema engine)
 prisma-error/       Shared error types
 cross-compat/       Cross-compatibility tests (Rust vs TypeScript)
@@ -103,15 +104,19 @@ Dependency chain:
 
 ```
 driver-core  <--  driver-pg, driver-mysql, driver-sqlite, driver-duckdb, driver-adbc, driver-flightsql
+     ^
      |
-     v
-query-executor  -->  prisma-compiler  -->  prisma-schema
+query-executor  -->  prisma-ir
+     ^
      |
-     v
-prisma-client  -->  prisma-codegen
+prisma-client  -->  prisma-compiler  -->  prisma-schema, prisma-ir, prisma-engines (git)
+     ^
      |
-     v
-prisma-cli  -->  prisma-migrate  -->  prisma-error
+prisma-cli  -->  prisma-codegen  -->  prisma-schema
+     |
+     +--------->  prisma-migrate  -->  prisma-engines (git)
+
+prisma-error  -->  driver-core, user-facing-errors (git)
 ```
 
 ## Database Support
@@ -121,7 +126,9 @@ prisma-cli  -->  prisma-migrate  -->  prisma-error
 | PostgreSQL | `tokio-postgres` | `deadpool-postgres` | Implemented |
 | MySQL | `mysql_async` | Built-in | Implemented |
 | SQLite | `rusqlite` (bundled) | N/A | Implemented |
-| DuckDB | ADBC | N/A | Implemented |
+| DuckDB | `duckdb` (bundled) | N/A | Implemented |
+| ADBC | `adbc_core` | N/A | Implemented |
+| Flight SQL | `arrow-flight` + `tonic` | N/A | Implemented |
 
 ## CLI Commands
 
@@ -151,7 +158,29 @@ cargo test -p prisma-codegen
 
 # Regenerate golden files after intentional output changes
 UPDATE_GOLDEN=1 cargo test --workspace
+
+# Start test databases (PostgreSQL on port 15432, MySQL on port 13306)
+make docker-up
+
+# Run integration tests (requires running databases)
+make test-integration
+
+# Stop test databases
+make docker-down
 ```
+
+### Makefile Targets
+
+| Target | Description |
+|--------|-------------|
+| `make test` | Run all tests |
+| `make test-unit` | Run unit tests only (no database required) |
+| `make test-integration` | Run integration tests (requires `make docker-up`) |
+| `make fmt` | Check formatting |
+| `make clippy` | Run clippy lints |
+| `make check` | Run fmt + clippy + test |
+| `make docker-up` | Start PostgreSQL and MySQL test containers |
+| `make docker-down` | Stop test containers |
 
 ## Minimum Supported Rust Version
 

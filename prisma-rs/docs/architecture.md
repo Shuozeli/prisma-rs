@@ -2,7 +2,7 @@
 
 ## Overview
 
-prisma-rs is a 16-crate Cargo workspace implementing the Prisma ORM in Rust.
+prisma-rs is a 17-crate Cargo workspace implementing the Prisma ORM in Rust.
 The architecture follows a layered design: database drivers at the bottom,
 query execution in the middle, and the CLI/client at the top.
 
@@ -13,29 +13,40 @@ query execution in the middle, and the CLI/client at the top.
                          /     |     \
                         /      |      \
               prisma-client  prisma-migrate  prisma-codegen
-                    |            |               |
-               query-executor   |          prisma-schema
-                /    |    \     |
-               /     |     \   |
-          driver-pg  |  driver-sqlite
-                     |
-               driver-mysql
-                     |
-                driver-core  <-- driver-duckdb, driver-adbc, driver-flightsql
-                     |
-                prisma-error
+               /         \                       |
+       prisma-compiler  query-executor      prisma-schema
+            |    \          |
+         prisma-ir  \   prisma-driver-core  <--+--+--+--+--+
+            |    prisma-engines   ^             |  |  |  |  |
+            |    (git deps)      |         driver-pg  |  |  |  |
+            |                    |     driver-mysql  |  |  |
+            |                    |    driver-sqlite  |  |
+            |                    |   driver-duckdb   |
+            |                    |   driver-adbc <-- driver-flightsql
+            |                    |
+          prisma-error ----------+
 ```
+
+Notes:
+- `prisma-error` depends on `prisma-driver-core` (not the reverse)
+- `query-executor` depends on `prisma-ir` and `prisma-driver-core` (no prisma-engines dependency)
+- `prisma-compiler` depends on prisma-engines crates (git) and `prisma-ir`
+- `prisma-client` depends on `prisma-compiler`, `query-executor`, and `prisma-driver-core`
+- `driver-flightsql` depends on `driver-adbc` for Arrow type conversion
 
 ## Layer Description
 
 ### Layer 1: Database Drivers
 
-The driver layer provides a unified `DatabaseDriver` trait that abstracts
-database-specific behavior. Each driver translates between the database's
-native wire protocol and Prisma's internal `ResultSet` / `PrismaValue` types.
+The driver layer provides a unified trait hierarchy (`SqlQueryable`, `SqlDriverAdapter`,
+`SqlDriverAdapterFactory`) that abstracts database-specific behavior. Each driver
+translates between the database's native wire protocol and Prisma's internal
+`SqlResultSet` / `QueryValue` types.
 
-- **driver-core**: Defines the `DatabaseDriver` trait, `ResultSet`, `PrismaValue`,
-  `DriverError`, and `MappedError`. All drivers depend on this crate.
+- **driver-core**: Defines the `SqlQueryable`, `Transaction`, `SqlDriverAdapter`,
+  `SqlDriverAdapterFactory` traits, plus `SqlResultSet`, `QueryValue`, `DriverError`,
+  `MappedError`, `DatabaseUrl`, `SafeMessage`, and `StaticSql`. All drivers depend
+  on this crate.
 - **driver-pg**: PostgreSQL via `tokio-postgres` with `deadpool-postgres` pooling
   and `rustls` TLS.
 - **driver-mysql**: MySQL via `mysql_async` with built-in pooling.
@@ -85,7 +96,8 @@ Errors flow upward through the layers using `thiserror`-derived types:
 3. **Schema errors**: Parsing and validation errors from malformed schemas.
 4. **CLI errors**: User-facing errors with actionable messages.
 
-All production paths return `Result` types. Panics are prohibited.
+All production execution paths return `Result` types. Panics are reserved for
+programmer errors and unsupported configurations in utility/test code.
 
 ## Connection Management
 
@@ -99,8 +111,12 @@ All production paths return `Result` types. Panics are prohibited.
 - Path traversal prevention: All file paths validated against the working directory.
 - Database URL scheme validation: Only known schemes accepted.
 - Migration name validation: Rejects path separators and `..` sequences.
+- Bind parameter limits: Each provider enforces a maximum bind parameter count
+  per query (PostgreSQL: 32,766, MySQL: 65,535, SQLite: 999) via
+  `Provider::max_bind_values()`.
+- Array parameter limits: PostgreSQL array params capped at 32,768 elements
+  (returns error on exceed).
 - Pagination bounds: Skip/take capped at 100,000 to prevent DoS.
-- Array parameter limits: PostgreSQL IN-clause arrays capped at 32,768.
 - Error body truncation: External API error responses truncated to prevent
   memory exhaustion.
 
@@ -159,7 +175,7 @@ Detailed documentation for each crate is in [`docs/components/`](components/):
 | [driver-flightsql](components/driver-flightsql.md) | Arrow Flight SQL driver (gRPC) |
 | [prisma-schema](components/prisma-schema.md) | Schema parsing, validation, DMMF |
 | [prisma-compiler](components/prisma-compiler.md) | Query compiler (wraps prisma-engines) |
-| [prisma-ir](components/prisma-ir.md) | Owned IR types for query plans |
+| [prisma-ir](components/prisma-ir.md) | Owned IR types (serialization boundary between compiler and executor) |
 | [query-executor](components/query-executor.md) | Query plan interpreter and executor |
 | [prisma-client](components/prisma-client.md) | Client runtime (PrismaClient, middleware, Accelerate) |
 | [prisma-codegen](components/prisma-codegen.md) | TypeScript and Rust code generator |

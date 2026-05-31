@@ -1,6 +1,6 @@
 # Code Review Tasks
 
-Last updated: 2026-03-08
+Last updated: 2026-03-26
 
 Tasks identified from code review of the prisma-rs Rust implementation.
 Organized by priority (P0 = fix before any release, P1 = fix before production, P2 = improve).
@@ -271,18 +271,18 @@ Organized by priority (P0 = fix before any release, P1 = fix before production, 
 Tasks identified from second code review focused on security risks and production readiness.
 
 ### S-001: PostgreSQL hardcoded to NoTls
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P0
-- **Files:** `driver-pg/src/adapter.rs:320`
-- **Description:** `cfg.create_pool(Some(Runtime::Tokio1), NoTls)` -- all PG connections are unencrypted. Credentials transmitted in plaintext. No TLS certificate validation.
-- **Fix:** Make TLS configurable via `PgOptions`. Parse `sslmode` from database URL query string. Support `disable`, `prefer`, `require` modes. Default to `prefer` for production safety. Requires adding `tokio-postgres-rustls` or `tokio-postgres-native-tls` dependency.
+- **Files:** `driver-pg/src/adapter.rs`
+- **Description:** PG connections were hardcoded to `NoTls`. Credentials were transmitted in plaintext.
+- **Fix:** Added `SslMode` enum (Disable, Prefer, Require) to `PgOptions`. TLS uses `tokio-postgres-rustls` with system native certificate store via `rustls-native-certs`. Default is `Disable` for backward compatibility; `Prefer` and `Require` use rustls.
 
 ### S-002: Unvalidated file path writes in CLI
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P0
-- **Files:** `prisma-cli/src/commands/db_pull.rs:38`, `format.rs:28`, `migrate_dev.rs:65-68`
-- **Description:** `--schema` flag accepts arbitrary paths. `std::fs::write(schema_path, ...)` writes without canonicalization. Path traversal via `../../etc/passwd` is possible.
-- **Fix:** Canonicalize paths and validate they are within the project directory. Reject paths containing `..` or that escape the allowed root.
+- **Files:** `prisma-cli/src/commands/db_pull.rs`, `format.rs`, `migrate_dev.rs`
+- **Description:** `--schema` flag accepted arbitrary paths. Path traversal via `../../etc/passwd` was possible.
+- **Fix:** Added path validation in CLI config loading. Paths are canonicalized and validated against the working directory.
 
 ### S-003: Path traversal in migration directory loading
 - **Status:** TODO
@@ -480,7 +480,7 @@ Tasks identified from second code review focused on security risks and productio
 - All task IDs are stable. Original review: T-001 through T-044. Security review: S-001 through S-020. Milestone tasks: M-001 through M-006.
 - Tasks within each priority group are roughly ordered by impact.
 - Original review: All 44 tasks resolved (DONE or WONTFIX).
-- Security review: All 20 findings resolved. 18 DONE, 1 WONTFIX (S-018), 1 DEFERRED (S-020, awaiting CI).
+- Security review: 20 findings. S-001 and S-002 now DONE. S-018 WONTFIX. S-020 DEFERRED (awaiting CI). S-003 through S-007 still TODO.
 - M-002 Phase 0 complete: `prisma-ir` crate decouples executor from prisma-engines (5 crates removed). All 53 integration tests pass.
 - M-003 through M-006 all DONE. Root cause for M-003/M-004: executor did not resolve `GeneratorCall` values or correctly deserialize `param` placeholders.
 - HTTP driver adapters (Neon, PlanetScale, D1, Prisma Postgres) are out of scope and should be deleted. Related tasks marked WONTFIX.

@@ -63,6 +63,7 @@ prisma-rs/                         Root repository (PRIVATE)
     driver-flightsql/              Arrow Flight SQL driver
     prisma-schema/                 Schema types (mirrors Prisma schema AST)
     prisma-compiler/               Query planning and compilation
+    prisma-ir/                     Owned IR types (serialization boundary)
     prisma-migrate/                Schema migration engine (RPC bridge)
     prisma-error/                  Shared error types
     cross-compat/                  Cross-compat testing (Rust vs TypeScript)
@@ -92,7 +93,7 @@ driver adapters) with Rust, and consolidates everything into one Rust workspace.
 
 ## What Works
 
-- 16-crate Cargo workspace builds and passes tests
+- 17-crate Cargo workspace builds and passes tests
 - PostgreSQL, MySQL, SQLite drivers with connection pooling
 - DuckDB, ADBC, and Flight SQL drivers
 - Query execution engine with in-memory filtering, sorting, pagination, aggregation

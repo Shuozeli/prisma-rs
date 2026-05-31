@@ -1,6 +1,6 @@
 # Phase 1: Database Driver Layer
 
-Last updated: 2026-03-07
+Last updated: 2026-03-26
 
 ## Goal
 
@@ -28,7 +28,7 @@ interfaces. Error mapping translates database-specific errors into Prisma's
 
 ## 1.1: Core Types & Traits
 
-**Status:** Not started
+**Status:** Done
 
 Port the foundational types from `driver-adapter-utils/src/types.ts`.
 
@@ -125,7 +125,7 @@ enum IsolationLevel {
 
 ## 1.2: Trait Definitions
 
-**Status:** Not started
+**Status:** Done
 
 Port the interface hierarchy from `driver-adapter-utils`.
 
@@ -197,7 +197,7 @@ against all traits.
 
 ## 1.3: Error Types
 
-**Status:** Not started
+**Status:** Done
 
 Port the error mapping system from `driver-adapter-utils/src/types.ts` and each
 adapter's `errors.ts`.
@@ -270,7 +270,7 @@ matches TS JSON format. Unit tests for each `MappedError` -> P2xxx mapping.
 
 ## 1.4: PostgreSQL Driver
 
-**Status:** Not started
+**Status:** Done
 
 Port `adapter-pg`. Recommended crate: `tokio-postgres` + `deadpool-postgres`.
 
@@ -359,7 +359,7 @@ Port `errors.ts:convertDriverError()`:
 
 ## 1.5: MySQL/MariaDB Driver
 
-**Status:** Not started
+**Status:** Done
 
 Port `adapter-mariadb`. Recommended crate: `sqlx::mysql` or `mysql_async`.
 
@@ -442,7 +442,7 @@ Port `errors.ts:convertDriverError()`:
 
 ## 1.6: SQLite Driver
 
-**Status:** Not started
+**Status:** Done
 
 Port `adapter-better-sqlite3`. Recommended crate: `rusqlite` (with `bundled`
 feature) + `tokio::task::spawn_blocking` for async.
@@ -508,7 +508,7 @@ Port `errors.ts:convertDriverError()`:
 
 ## 1.7: Cross-Compat Test Suite
 
-**Status:** Not started
+**Status:** Done
 
 Verification that Rust drivers produce identical results to TypeScript adapters.
 
