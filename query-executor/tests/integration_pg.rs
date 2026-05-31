@@ -119,7 +119,7 @@ async fn compile_and_execute(
 // -- CRUD --
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_find_many_empty() {
     let mut adapter = setup_db().await;
     let compiler = make_compiler();
@@ -134,7 +134,7 @@ async fn pg_find_many_empty() {
 }
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_create_one() {
     let mut adapter = setup_db().await;
     let compiler = make_compiler();
@@ -150,7 +150,7 @@ async fn pg_create_one() {
 }
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_find_many_with_data() {
     let mut adapter = setup_db().await;
     insert_user(adapter.as_mut(), "a@test.com", "Alice").await;
@@ -168,7 +168,7 @@ async fn pg_find_many_with_data() {
 }
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_find_unique() {
     let mut adapter = setup_db().await;
     insert_user(adapter.as_mut(), "unique@test.com", "Unique").await;
@@ -185,7 +185,7 @@ async fn pg_find_unique() {
 }
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_update_one() {
     let mut adapter = setup_db().await;
     insert_user(adapter.as_mut(), "upd@test.com", "Before").await;
@@ -202,7 +202,7 @@ async fn pg_update_one() {
 }
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_delete_one() {
     let mut adapter = setup_db().await;
     insert_user(adapter.as_mut(), "del@test.com", "Delete").await;
@@ -222,7 +222,7 @@ async fn pg_delete_one() {
 // -- createMany --
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_create_many() {
     let mut adapter = setup_db().await;
     let compiler = make_compiler();
@@ -240,7 +240,7 @@ async fn pg_create_many() {
 // -- upsert --
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_upsert_create() {
     let mut adapter = setup_db().await;
     let compiler = make_compiler();
@@ -255,7 +255,7 @@ async fn pg_upsert_create() {
 }
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_upsert_update() {
     let mut adapter = setup_db().await;
     insert_user(adapter.as_mut(), "existing@test.com", "Original").await;
@@ -274,7 +274,7 @@ async fn pg_upsert_update() {
 // -- Filtering --
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_filter_where() {
     let mut adapter = setup_db().await;
     insert_user(adapter.as_mut(), "a@test.com", "Alice").await;
@@ -294,7 +294,7 @@ async fn pg_filter_where() {
 }
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_filter_in() {
     let mut adapter = setup_db().await;
     insert_user(adapter.as_mut(), "a@test.com", "Alice").await;
@@ -314,7 +314,7 @@ async fn pg_filter_in() {
 // -- orderBy and pagination --
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_order_by() {
     let mut adapter = setup_db().await;
     insert_user(adapter.as_mut(), "c@test.com", "Charlie").await;
@@ -333,7 +333,7 @@ async fn pg_order_by() {
 }
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_skip_take() {
     let mut adapter = setup_db().await;
     for i in 0..5 {
@@ -353,7 +353,7 @@ async fn pg_skip_take() {
 // -- Aggregate and groupBy --
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_aggregate() {
     let mut adapter = setup_db().await;
     insert_user(adapter.as_mut(), "a@test.com", "A").await;
@@ -372,7 +372,7 @@ async fn pg_aggregate() {
 }
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_group_by() {
     let mut adapter = setup_db().await;
     insert_user(adapter.as_mut(), "a1@test.com", "Alice").await;
@@ -393,7 +393,7 @@ async fn pg_group_by() {
 // -- Nested writes --
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_create_with_nested() {
     let mut adapter = setup_db().await;
     let compiler = make_compiler();
@@ -411,7 +411,7 @@ async fn pg_create_with_nested() {
 // -- Transaction --
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_transaction_commit() {
     let mut adapter = setup_db().await;
     let compiler = make_compiler();
@@ -428,7 +428,7 @@ async fn pg_transaction_commit() {
 }
 
 #[serial]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pg_transaction_rollback() {
     let mut adapter = setup_db().await;
     let compiler = make_compiler();
