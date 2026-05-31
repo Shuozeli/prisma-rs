@@ -1,5 +1,5 @@
 use postgres_types::Type as PgType;
-use prisma_driver_core::{ColumnType, DriverError, MappedError, QueryValue, ResultValue};
+use prisma_driver_core::{ColumnType, DriverError, QueryValue, ResultValue};
 
 /// A NULL value that accepts any PostgreSQL type.
 ///
@@ -164,7 +164,7 @@ pub fn query_value_to_pg_param_typed(
                 tracing::warn!(value = *v, target_type = "INT4", "i64 value truncated to i32");
                 if *v > 0 { i32::MAX } else { i32::MIN }
             });
-            Box::new(narrowed)
+            Ok(Box::new(narrowed))
         }
         // INT2 column but we have Int64 -- downcast to i16
         (QueryValue::Int64(v), Some(t)) if *t == T::INT2 => {
@@ -172,7 +172,7 @@ pub fn query_value_to_pg_param_typed(
                 tracing::warn!(value = *v, target_type = "INT2", "i64 value truncated to i16");
                 if *v > 0 { i16::MAX } else { i16::MIN }
             });
-            Box::new(narrowed)
+            Ok(Box::new(narrowed))
         }
         // INT4 column but we have Int32 -- already correct
         (QueryValue::Int32(v), Some(t)) if *t == T::INT8 => Ok(Box::new(*v as i64)),
